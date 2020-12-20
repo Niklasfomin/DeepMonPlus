@@ -29,7 +29,7 @@ RUN buildDeps='python python-pip wget curl apt-transport-https git bison build-e
   && make install \
   && cd / \
   && rm -r bcc \
-  && git clone https://github.com/DataDog/sketches-py.git \
+  && git clone --branch v1.0 https://github.com/DataDog/sketches-py.git \
   && cd sketches-py \
   && python3 setup.py install \
   && cd / \
