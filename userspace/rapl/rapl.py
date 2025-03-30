@@ -1,54 +1,68 @@
 """
-    DEEP-mon
-    Copyright (C) 2020  Brondolin Rolando
+DEEP-mon
+Copyright (C) 2020  Brondolin Rolando
 
-    This file is part of DEEP-mon
+This file is part of DEEP-mon
 
-    DEEP-mon is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+DEEP-mon is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    DEEP-mon is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+DEEP-mon is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from collections import namedtuple
 from datetime import datetime
 
 
-class RaplReader():
-
+class RaplReader:
     def _read_sysfs_file(self, path):
         try:
             with open(path, "r") as f:
                 contents = f.read().strip()
+                # print("Contents are: ", contents)
                 return contents
         except EnvironmentError:
             return "0"
 
     def read_energy_core_sample(self, package=0):
-        energy = int(self._read_sysfs_file("/sys/class/powercap/intel-rapl/" +
-            "intel-rapl:{}/intel-rapl:{}:0/energy_uj".format(package, package)))
+        energy = int(
+            self._read_sysfs_file(
+                "/sys/class/powercap/intel-rapl/"
+                + "intel-rapl:{}/intel-rapl:{}:0/energy_uj".format(package, package)
+            )
+        )
+        # print("Energy Core sample is: ", energy)
         return RaplSample(energy, datetime.now())
 
     def read_energy_dram_sample(self, package=0):
-        energy = int(self._read_sysfs_file("/sys/class/powercap/intel-rapl/" +
-            "intel-rapl:{}/intel-rapl:{}:1/energy_uj".format(package, package)))
+        energy = int(
+            self._read_sysfs_file(
+                "/sys/class/powercap/intel-rapl/"
+                + "intel-rapl:{}/intel-rapl:{}:1/energy_uj".format(package, package)
+            )
+        )
+        # print("Energy DRAM sample is: ", energy)
         return RaplSample(energy, datetime.now())
 
     def read_energy_package_sample(self, package=0):
-        energy = int(self._read_sysfs_file("/sys/class/powercap/intel-rapl/" +
-            "intel-rapl:{}/energy_uj".format(package)))
+        energy = int(
+            self._read_sysfs_file(
+                "/sys/class/powercap/intel-rapl/"
+                + "intel-rapl:{}/energy_uj".format(package)
+            )
+        )
+        # print("Energy Package sample is: ", energy)
         return RaplSample(energy, datetime.now())
 
 
-class RaplSample():
+class RaplSample:
     def __init__(self, energy, timestamp):
         self.energy_uj = energy
         self.sample_time = timestamp
@@ -70,7 +84,7 @@ class RaplSample():
         return RaplDiff(energy_diff, delta_time)
 
 
-class RaplDiff():
+class RaplDiff:
     def __init__(self, energy, time):
         self.energy_uj = energy
         self.duration = time
@@ -91,36 +105,49 @@ class RaplDiff():
         return self.energy_uj / self.duration
 
 
-class RaplMonitor():
-
+class RaplMonitor:
     def __init__(self, topology):
         self.rapl_reader = RaplReader()
         self.topology = topology
-        self.sample_core = [self.rapl_reader.read_energy_core_sample(skt)
-                            for skt in self.topology.get_sockets()]
-        self.sample_pkg = [self.rapl_reader.read_energy_package_sample(skt)
-                          for skt in self.topology.get_sockets()]
-        self.sample_dram = [self.rapl_reader.read_energy_dram_sample(skt)
-                            for skt in self.topology.get_sockets()]
+        self.sample_core = [
+            self.rapl_reader.read_energy_core_sample(skt)
+            for skt in self.topology.get_sockets()
+        ]
+        self.sample_pkg = [
+            self.rapl_reader.read_energy_package_sample(skt)
+            for skt in self.topology.get_sockets()
+        ]
+        self.sample_dram = [
+            self.rapl_reader.read_energy_dram_sample(skt)
+            for skt in self.topology.get_sockets()
+        ]
 
     def take_sample_package(self):
-        package_sample = [self.rapl_reader.read_energy_package_sample(skt)
-                          for skt in self.topology.get_sockets()]
+        package_sample = [
+            self.rapl_reader.read_energy_package_sample(skt)
+            for skt in self.topology.get_sockets()
+        ]
         return package_sample
 
     def take_sample_core(self):
-        core_sample = [self.rapl_reader.read_energy_core_sample(skt)
-                       for skt in self.topology.get_sockets()]
+        core_sample = [
+            self.rapl_reader.read_energy_core_sample(skt)
+            for skt in self.topology.get_sockets()
+        ]
         return core_sample
 
     def take_sample_dram(self):
-        dram_sample = [self.rapl_reader.read_energy_dram_sample(skt)
-                       for skt in self.topology.get_sockets()]
+        dram_sample = [
+            self.rapl_reader.read_energy_dram_sample(skt)
+            for skt in self.topology.get_sockets()
+        ]
         return dram_sample
 
     def diff_samples(self, final_sample, initial_sample):
-        rapl_diff = [final_sample[skt] - initial_sample[skt]
-                     for skt in self.topology.get_sockets()]
+        rapl_diff = [
+            final_sample[skt] - initial_sample[skt]
+            for skt in self.topology.get_sockets()
+        ]
         return rapl_diff
 
     def get_rapl_measure(self):

@@ -3,7 +3,7 @@
 echo "Building the ebpf-mon container...!"
 make build
 
-sleep 4s
+sleep 2s
 
 echo "Removing the old container instance...!"
 docker rm -f ebpf-mon

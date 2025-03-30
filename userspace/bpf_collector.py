@@ -415,18 +415,23 @@ class BpfCollector:
             package_power = [
                 package_diff[skt].power_milliw() for skt in self.topology.get_sockets()
             ]
+            # print("Package power: ", package_power)
             core_power = [
                 core_diff[skt].power_milliw() for skt in self.topology.get_sockets()
             ]
+            # print("Core power: ", core_power)
             dram_power = [
                 dram_diff[skt].power_milliw() for skt in self.topology.get_sockets()
             ]
+            # print("DRAM power: ", dram_power)
             total_power = {
                 "package": sum(package_power),
                 "core": sum(core_power),
                 "dram": sum(dram_power),
             }
+            # print("Total power: ", total_power)
         else:
+            # print("Power measure is disabled")
             total_power = {"package": 0, "core": 0, "dram": 0}
 
         for key, data in self.pids.items():

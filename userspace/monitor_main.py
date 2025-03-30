@@ -166,41 +166,57 @@ class MonitorMain:
             sample_array = self.get_sample()
             sample = sample_array[0]
             container_list = sample_array[1]
-            print("Container List: ", container_list)
+            # print("Container List: ", container_list)
 
             # TODO: Implement the Prometheus Exporter here...!
             if self.output_format == "json":
-                print("Output format is JSON")
                 try:
                     for key, value in container_list.items():
                         print(f"Container ID: {key}")
                         print(value.to_json())
                     print(sample.get_log_json())
+                    if self.print_net_details:
+                        nat_data = sample_array[3]
+                        for nat_rule in nat_data:
+                            print(nat_rule)
+                    for key, value in sorted(container_list.itmes()):
+                        print(value.to_json())
+                        if self.print_net_details:
+                        for item in value.get_network_transactions():
+                            print(item)
+                        for item in value.get_nat_rules():
+                            print(item)
+                            print(sample.get_log_line())
+
+                except AttributeError as e:
+                    print(f"AttributeError: {e}")
+                except Exception as e:
+                    print(f"Unexpected error: {e}")
                 except AttributeError as e:
                     print(f"AttributeError: {e}")
                 except Exception as e:
                     print(f"Unexpected error: {e}")
 
-            # elif self.output_format == "console":
-            #     if self.print_net_details:
-            #         nat_data = sample_array[3]
-            #         for nat_rule in nat_data:
-            #             print(nat_rule)
+            elif self.output_format == "console":
+                if self.print_net_details:
+                    nat_data = sample_array[3]
+                    for nat_rule in nat_data:
+                        print(nat_rule)
 
-            #     for key, value in sorted(container_list.items()):
-            #         print(value)
+                for key, value in sorted(container_list.items()):
+                    print(value)
 
-            #         if self.print_net_details:
-            #             for item in value.get_network_transactions():
-            #                 print(item)
-            #             for item in value.get_nat_rules():
-            #                 print(item)
+                    if self.print_net_details:
+                        for item in value.get_network_transactions():
+                            print(item)
+                        for item in value.get_nat_rules():
+                            print(item)
 
-            #     print("│")
-            #     print("└─╼", end="\t")
-            #     print(sample.get_log_line())
-            #     print()
-            #     print()
+                print("│")
+                print("└─╼", end="\t")
+                print(sample.get_log_line())
+                print()
+                print()
 
             if self.window_mode == "dynamic":
                 time_to_sleep = self.sample_controller.get_sleep_time() - (

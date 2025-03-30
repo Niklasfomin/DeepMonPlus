@@ -1,0 +1,63 @@
+# Capture logs from Deep Mon container
+[sources.ebpf-mon-logs]
+type = "docker_logs"
+include_containers = ["ebpf-mon"]  # Ensure this matches your container name
+docker_host = "unix:///var/run/docker.sock"
+
+# Parse JSON from stdout
+[transforms.ebpf-mon-parse]
+type = "remap"
+inputs = ["ebpf-mon-logs"]
+source = ". = parse_json!(.message)"
+
+# Convert Deep Mon logs into metrics
+[transforms.ebpf-mon-metrics]
+type = "log_to_metric"
+inputs = ["ebpf-mon-parse"]
+
+[[transforms.ebpf-mon-metrics.metrics]]
+type = "gauge"
+field = "cpu_usage"
+
+[transforms.ebpf-mon-metrics.metrics.tags]
+container_id = "{{ container_id }}"
+
+[[transforms.ebpf-mon-metrics.metrics]]
+type = "gauge"
+field = "power"
+
+[transforms.ebpf-mon-metrics.metrics.tags]
+container_id = "{{ container_id }}"
+
+[[transforms.ebpf-mon-metrics.metrics]]
+type = "counter"
+field = "cache_misses"
+
+[transforms.ebpf-mon-metrics.metrics.tags]
+container_id = "{{ container_id }}"
+
+[[transforms.ebpf-mon-metrics.metrics]]
+type = "counter"
+field = "cache_refs"
+
+[transforms.ebpf-mon-metrics.metrics.tags]
+container_id = "{{ container_id }}"
+
+[[transforms.ebpf-mon-metrics.metrics]]
+type = "counter"
+field = "instruction_retired"
+
+[transforms.ebpf-mon-metrics.metrics.tags]
+container_id = "{{ container_id }}"
+
+[[transforms.ebpf-mon-metrics.metrics]]
+type = "gauge"
+field = "time_ns"
+
+[transforms.ebpf-mon-metrics.metrics.tags]
+container_id = "{{ container_id }}"
+
+[sinks.prometheus]
+type = "prometheus_exporter"
+inputs = ["ebpf-mon-metrics"]
+address = "0.0.0.0:9090"
