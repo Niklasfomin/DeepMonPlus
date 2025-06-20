@@ -29,7 +29,7 @@ help: ## This help.
 
 # DOCKER TASKS
 run: ## Run a standalone image with text UI
-	sudo docker run -it --privileged --name ebpf-mon -v /lib/modules:/lib/modules:ro -v /usr/src:/usr/src:ro -v /etc/localtime:/etc/localtime:ro -v /sys/kernel/debug:/sys/kernel/debug:rw -v /proc:/host/proc:ro -v ${PWD}/config.yaml:/home/config.yaml -v /var/run/docker.sock:/var/run/docker.sock --net host ebpf-mon
+	sudo docker run -it --privileged --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --security-opt apparmor=unconfined --name ebpf-mon -v /lib/modules:/lib/modules:ro -v /usr/src:/usr/src:ro -v /etc/localtime:/etc/localtime:ro -v /sys/kernel/debug:/sys/kernel/debug:rw -v /proc:/host/proc:ro -v ${PWD}/config.yaml:/home/config.yaml -v /var/run/docker.sock:/var/run/docker.sock  --net host ebpf-mon
 
 explore: ## Run a standalone image with bash to check stuff
 	sudo docker run -it --rm --privileged --name ebpf-mon -v /lib/modules:/lib/modules:ro -v /usr/src:/usr/src:ro -v /etc/localtime:/etc/localtime:ro -v /sys/kernel/debug:/sys/kernel/debug:rw -v /proc:/host/proc:ro -v ${PWD}/config.yaml:/home/config.yaml -v /var/run/docker.sock:/var/run/docker.sock --net host ebpf-mon bash

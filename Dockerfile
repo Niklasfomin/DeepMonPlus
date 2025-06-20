@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 LABEL maintainer="Rolando Brondolin"
 
 # Silence any interactive prompts
@@ -29,24 +29,24 @@ ENV LANGUAGE=en_US.UTF-8
 RUN wget https://apt.llvm.org/llvm.sh \
   && chmod +x llvm.sh \
   # Just '10' sets up repo & installs a minimal subset, avoiding libunwind-10-dev
-  && ./llvm.sh 10 \
+  && ./llvm.sh 14 \
   && rm llvm.sh
 
 # 5. Manually install needed LLVM 10 packages (omit libunwind-10-dev)
 RUN apt-get update && apt-get install -y \
-  clang-10 \
-  lld-10 \
-  lldb-10 \
-  llvm-10-dev \
-  libclang-10-dev \
+  clang-14 \
+  lld-14 \
+  lldb-14 \
+  llvm-14-dev \
+  libclang-14-dev \
   # If you need polly:
   # libpolly-18-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # 6. Install build dependencies for BCC
 RUN buildDeps='\
-  python \
-  python-pip \
+  python3 \
+  python3-pip \
   wget \
   curl \
   git \
@@ -59,19 +59,24 @@ RUN buildDeps='\
   libelf-dev \
   ' \
   && apt-get update && apt-get install -y $buildDeps \
+  \
+  # Install CMake ≥ 3.12
+  && wget https://github.com/Kitware/CMake/releases/download/v3.25.3/cmake-3.25.3-linux-x86_64.sh \
+  && chmod +x cmake-3.25.3-linux-x86_64.sh \
+  && ./cmake-3.25.3-linux-x86_64.sh --skip-license --prefix=/usr/local \
+  && rm cmake-3.25.3-linux-x86_64.sh \
   && rm -rf /var/lib/apt/lists/*
-
 # 7. Confirm clang-10 is on PATH
 RUN which clang-10 || echo "clang-10 not found"
-RUN clang-10 --version
+RUN clang-14 --version
 
 # 8. Build & install BCC with clang-10
 RUN git clone https://github.com/iovisor/bcc.git \
   && mkdir bcc/build \
   && cd bcc/build \
   && cmake \
-  -DCMAKE_C_COMPILER=/usr/bin/clang-10 \
-  -DCMAKE_CXX_COMPILER=/usr/bin/clang++-10 \
+  -DCMAKE_C_COMPILER=/usr/bin/clang-14 \
+  -DCMAKE_CXX_COMPILER=/usr/bin/clang++-14 \
   .. \
   && make -j"$(nproc)" \
   && make install \
@@ -79,8 +84,8 @@ RUN git clone https://github.com/iovisor/bcc.git \
   # Python bindings for BCC
   && cmake \
   -DPYTHON_CMD=python3 \
-  -DCMAKE_C_COMPILER=/usr/bin/clang-10 \
-  -DCMAKE_CXX_COMPILER=/usr/bin/clang++-10 \
+  -DCMAKE_C_COMPILER=/usr/bin/clang-14 \
+  -DCMAKE_CXX_COMPILER=/usr/bin/clang++-14 \
   .. \
   && cd src/python \
   && make -j"$(nproc)" \

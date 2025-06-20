@@ -21,6 +21,7 @@
 import multiprocessing
 import os
 import ctypes as ct
+import pprint
 
 class BpfProcTopology(ct.Structure):
     _fields_ = [("ht_id", ct.c_ulonglong),
@@ -50,6 +51,7 @@ class ProcTopology:
         self.coresDict = {}
         self.socket_set = set()
 
+        # Build dict of cores from /proc/cpuinfo
         with open(ProcTopology.processors_path) as f:
             for line in f:
                 sp = line.split(" ")
@@ -71,9 +73,11 @@ class ProcTopology:
                     if not found:
                         self.coresDict[ht_id] = [ht_id, -1, core_id, processor_id]
 
+    # Print the topology in a human-readable format, use pretty print
     def print_topology(self):
         for key, value in self.coresDict.items():
             print(value)
+        # pprint.pprint(self.coresDict)
 
     def get_topology(self):
         return self.coresDict
@@ -100,4 +104,5 @@ class ProcTopology:
                                 ct.c_ulonglong(0), \
                                 ct.c_int(0))
             bpf_dict[key] = core
+            # pprint.pprint(bpf_dict)
         return bpf_dict

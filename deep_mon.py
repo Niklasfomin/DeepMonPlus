@@ -21,17 +21,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import click
 import yaml
 
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
+# try:
+    # from yaml import CLoader as Loader
+# except ImportError:
+    # from yaml import Loader
 
 if __name__ == "__main__":
     from userspace.monitor_main import MonitorMain
-    from userspace.curse import Curse
 else:
     from .userspace.monitor_main import MonitorMain
-    from .userspace.curse import Curse
 
 # Load config file with default values
 config = {}
@@ -87,17 +85,7 @@ def main(
         disk_measure,
         file_measure,
     )
-    if output_format == "curses":
-        curse = Curse(
-            monitor,
-            power_measure,
-            net_monitor,
-            memory_measure,
-            disk_measure,
-            file_measure,
-        )
-        curse.start()
-    elif output_format == "console":
+    if output_format == "console":
         monitor.monitor_loop()
 
     elif output_format == "json":

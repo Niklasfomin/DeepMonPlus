@@ -151,7 +151,6 @@ class MonitorMain:
             file_dict,
         ]
 
-    # TODO: Add json output to this func and disable the others
     def monitor_loop(self):
         if self.window_mode == "dynamic":
             time_to_sleep = self.sample_controller.get_sleep_time()
@@ -166,32 +165,27 @@ class MonitorMain:
             sample_array = self.get_sample()
             sample = sample_array[0]
             container_list = sample_array[1]
-            # print("Container List: ", container_list)
 
-            # TODO: Implement the Prometheus Exporter here...!
+            # --- FIX: Print container keys for debugging ---
+            print(f"DEBUG: container_list keys: {list(container_list.keys())}")
+
             if self.output_format == "json":
                 try:
-                    for key, value in container_list.items():
-                        print(f"Container ID: {key}")
-                        print(value.to_json())
+                    # Print global/sample-level power and timing info ONCE
+                    print("Sample (global) stats:")
                     print(sample.get_log_json())
-                    if self.print_net_details:
-                        nat_data = sample_array[3]
-                        for nat_rule in nat_data:
-                            print(nat_rule)
-                    for key, value in sorted(container_list.itmes()):
-                        print(value.to_json())
-                        if self.print_net_details:
-                        for item in value.get_network_transactions():
-                            print(item)
-                        for item in value.get_nat_rules():
-                            print(item)
-                            print(sample.get_log_line())
 
-                except AttributeError as e:
-                    print(f"AttributeError: {e}")
-                except Exception as e:
-                    print(f"Unexpected error: {e}")
+                    # Then print each container's info
+                    if container_list:
+                        for key, value in container_list.items():
+                            print(f"Container ID: {key}")
+                            # Defensive: handle missing to_json
+                            if hasattr(value, "to_json"):
+                                print(value.to_json())
+                            else:
+                                print(str(value))
+                    else:
+                        print("No containers found in this sample.")
                 except AttributeError as e:
                     print(f"AttributeError: {e}")
                 except Exception as e:
@@ -203,20 +197,16 @@ class MonitorMain:
                     for nat_rule in nat_data:
                         print(nat_rule)
 
-                for key, value in sorted(container_list.items()):
-                    print(value)
-
-                    if self.print_net_details:
-                        for item in value.get_network_transactions():
-                            print(item)
-                        for item in value.get_nat_rules():
-                            print(item)
-
-                print("│")
-                print("└─╼", end="\t")
-                print(sample.get_log_line())
-                print()
-                print()
+                if container_list:
+                    for key, value in sorted(container_list.items()):
+                        print(value)
+                        if self.print_net_details:
+                            for item in value.get_network_transactions():
+                                print(item)
+                            for item in value.get_nat_rules():
+                                print(item)
+                else:
+                    print("No containers found in this sample.")
 
             if self.window_mode == "dynamic":
                 time_to_sleep = self.sample_controller.get_sleep_time() - (

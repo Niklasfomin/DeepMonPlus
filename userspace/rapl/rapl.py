@@ -83,25 +83,29 @@ class RaplSample:
             energy_diff = 2**32 + self.energy_uj - other.energy_uj
         return RaplDiff(energy_diff, delta_time)
 
-
 class RaplDiff:
     def __init__(self, energy, time):
         self.energy_uj = energy
         self.duration = time
+        # print(f"RAPL diff: energy={self.energy_uj}, duration={self.duration}")
 
     @property
     def energy(self):
         return self.energy_uj
 
     def power_w(self):
-        # Convert from microJ to J and return power consumption
+        if self.duration == 0:
+            return 0
         return (self.energy_uj / 1000000) / self.duration
 
     def power_milliw(self):
-        # Convert from microJ to milliJ and return power consumption
+        if self.duration == 0:
+            return 0
         return (self.energy_uj / 1000) / self.duration
 
     def power_microw(self):
+        if self.duration == 0:
+            return 0
         return self.energy_uj / self.duration
 
 

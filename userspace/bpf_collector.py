@@ -23,26 +23,15 @@ from .proc_topology import BpfProcTopology
 from .proc_topology import ProcTopology
 from .process_info import BpfPidStatus
 from .process_info import SocketProcessItem
+from .process_table import ProcTable
 from .process_info import ProcessInfo
 from .sample_controller import SampleController
 import ctypes as ct
 import json
+import traceback
 import multiprocessing
 import os
 import time
-
-
-class bcolors:
-    RED = "\033[91m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    BLUE = "\033[94m"
-    MAGENTA = "\033[95m"
-    CYAN = "\033[96m"
-    WHITE = "\033[97m"
-    ENDC = "\033[0m"
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
 
 
 class BpfSample:
@@ -87,12 +76,9 @@ class BpfSample:
 
     def __str__(self):
         str_representation = ""
-
         for key, value in sorted(self.pid_dict.items()):
             str_representation = str_representation + str(value) + "\n"
-
         str_representation = str_representation + self.get_log_line()
-
         return str_representation
 
     def get_log_dict(self):
@@ -100,56 +86,42 @@ class BpfSample:
         d["PROC TIME"] = "{:.3f}".format(self.total_execution_time)
         d["SCHED SWITCH COUNT"] = str(self.sched_switch_count)
         d["TIMESLICE"] = str(self.timeslice / 1000000000)
-        d["TOTAL PACKAGE ACTIVE POWER"] = "{:.3f}".format(
-            self.total_active_power["package"]
-        )
+        d["TOTAL PACKAGE ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["package"])
         d["TOTAL CORE ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["core"])
-        d["TOTAL DRAM ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["dram"])
+        # d["TOTAL DRAM ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["dram"])
         return d
 
     def get_log_line(self):
         str_representation = (
-            bcolors.YELLOW
-            + "PROC TIME: "
-            + bcolors.ENDC
+            "PROC TIME: "
             + "{:.3f}".format(self.total_execution_time)
             + "\t"
-            + bcolors.YELLOW
             + "SCHED SWITCH COUNT: "
-            + bcolors.ENDC
             + str(self.sched_switch_count)
             + "\t"
-            + bcolors.YELLOW
             + "TIMESLICE: "
-            + bcolors.ENDC
             + str(self.timeslice / 1000000000)
             + "s"
             + "\n\t"
-            + bcolors.GREEN
             + "TOTAL PACKAGE ACTIVE POWER:\t"
-            + bcolors.ENDC
             + "{:.3f}".format(self.total_active_power["package"])
             + "\n\t"
-            + bcolors.GREEN
             + "TOTAL CORE ACTIVE POWER:\t"
-            + bcolors.ENDC
             + "{:.3f}".format(self.total_active_power["core"])
-            + "\n\t"
-            + bcolors.GREEN
-            + "TOTAL DRAM ACTIVE POWER:\t"
-            + bcolors.ENDC
-            + "{:.3f}".format(self.total_active_power["dram"])
+            # + "\n\t"
+            # + "TOTAL DRAM ACTIVE POWER:\t"
+            # + "{:.3f}".format(self.total_active_power["dram"])
         )
         return str_representation
 
     def get_log_json(self):
         d = {
-            "PROC TIME": str(self.total_execution_time),
+            "PROC TIME": "{:.6f}".format(self.total_execution_time),
             "SCHED SWITCH COUNT": str(self.sched_switch_count),
             "TIMESLICE": str(self.timeslice),
-            "TOTAL PACKAGE ACTIVE POWER": str(self.total_active_power["package"]),
-            "TOTAL CORE ACTIVE POWER": str(self.total_active_power["core"]),
-            "TOTAL DRAM ACTIVE POWER": str(self.total_active_power["dram"]),
+            "TOTAL PACKAGE ACTIVE POWER": "{:.3f}".format(self.total_active_power["package"]),
+            "TOTAL CORE ACTIVE POWER": "{:.3f}".format(self.total_active_power["core"]),
+            # "TOTAL DRAM ACTIVE POWER": "{:.3f}".format(self.total_active_power["dram"]),
         }
         return json.dumps(d, indent=4)
 
@@ -179,23 +151,15 @@ class BpfCollector:
             os.path.dirname(os.path.abspath(__file__)) + "/../bpf/bpf_monitor.c"
         )
         if debug is False:
-            if self.power_measure == True:
-                self.bpf_program = BPF(
-                    src_file=bpf_code_path,
-                    cflags=[
-                        "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
-                        "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
-                        "-DPERFORMANCE_COUNTERS",
-                    ],
-                )
-            else:
-                self.bpf_program = BPF(
-                    src_file=bpf_code_path,
-                    cflags=[
-                        "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
-                        "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
-                    ],
-                )
+            # if self.power_measure == True:
+            self.bpf_program = BPF(
+                src_file=bpf_code_path,
+                cflags=[
+                    "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
+                    "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
+                    "-DPERFORMANCE_COUNTERS",
+                ],
+            )
         else:
             self.bpf_program = BPF(
                 src_file=bpf_code_path,
@@ -222,16 +186,55 @@ class BpfCollector:
         # int("73003c",16) is the hex for UNHALTED_CORE_CYCLES for any thread
         # int("53003c",16) is the hex for UNHALTED_CORE_CYCLES
         # int("5300c0",16) is the hex for INSTRUCTION_RETIRED
-        if self.power_measure == True:
+        # if self.power_measure == True:
+        #     self.bpf_program["cycles_core"].open_perf_event(4, int("73003c", 16))
+        #     self.bpf_program["cycles_thread"].open_perf_event(4, int("53003c", 16))
+        #     self.bpf_program["instr_thread"].open_perf_event(4, int("5300c0", 16))
+        #     self.bpf_program["cache_misses"].open_perf_event(
+        #         PerfType.HARDWARE, PerfHWConfig.CACHE_MISSES
+        #     )
+        #     self.bpf_program["cache_refs"].open_perf_event(
+        #         PerfType.HARDWARE, PerfHWConfig.CACHE_REFERENCES
+        #     )
+        #     if self.power_measure == True:
+        try:
+            print("Opening cycles_core perf event...")
             self.bpf_program["cycles_core"].open_perf_event(4, int("73003c", 16))
+            print("cycles_core opened successfully.")
+        except Exception as e:
+            print(f"Error opening cycles_core: {e}")
+
+        try:
+            print("Opening cycles_thread perf event...")
             self.bpf_program["cycles_thread"].open_perf_event(4, int("53003c", 16))
+            print("cycles_thread opened successfully.")
+        except Exception as e:
+            print(f"Error opening cycles_thread: {e}")
+
+        try:
+            print("Opening instr_thread perf event...")
             self.bpf_program["instr_thread"].open_perf_event(4, int("5300c0", 16))
+            print("instr_thread opened successfully.")
+        except Exception as e:
+            print(f"Error opening instr_thread: {e}")
+
+        try:
+            print("Opening cache_misses perf event...")
             self.bpf_program["cache_misses"].open_perf_event(
                 PerfType.HARDWARE, PerfHWConfig.CACHE_MISSES
             )
+            print("cache_misses opened successfully.")
+        except Exception as e:
+            print(f"Error opening cache_misses: {e}")
+
+        try:
+            print("Opening cache_refs perf event...")
             self.bpf_program["cache_refs"].open_perf_event(
                 PerfType.HARDWARE, PerfHWConfig.CACHE_REFERENCES
             )
+            print("cache_refs opened successfully.")
+        except Exception as e:
+            print(f"Error opening cache_refs: {e}")
 
     def print_event(self, cpu, data, size):
         event = ct.cast(data, ct.POINTER(ErrorCode)).contents
@@ -355,13 +358,13 @@ class BpfCollector:
         package_diff = 0
         core_diff = 0
         dram_diff = 0
-        if self.power_measure == True:
+        # if self.power_measure == True:
             # Get new sample from rapl right before changing selector in eBPF
-            rapl_measurement = rapl_monitor.get_rapl_measure()
+        rapl_measurement = rapl_monitor.get_rapl_measure()
 
-            package_diff = rapl_measurement["package"]
-            core_diff = rapl_measurement["core"]
-            dram_diff = rapl_measurement["dram"]
+        package_diff = rapl_measurement["package"]
+        core_diff = rapl_measurement["core"]
+        dram_diff = rapl_measurement["dram"]
 
         # Propagate the update of the selector to the eBPF program
         self.bpf_config[ct.c_int(0)] = ct.c_uint(self.selector)
@@ -410,29 +413,25 @@ class BpfCollector:
                             + data.weighted_cycles[multisocket_selector]
                         )
 
-        if self.power_measure == True:
-            # Compute package/core/dram power in mW from RAPL samples
-            package_power = [
-                package_diff[skt].power_milliw() for skt in self.topology.get_sockets()
-            ]
-            # print("Package power: ", package_power)
-            core_power = [
-                core_diff[skt].power_milliw() for skt in self.topology.get_sockets()
-            ]
-            # print("Core power: ", core_power)
-            dram_power = [
-                dram_diff[skt].power_milliw() for skt in self.topology.get_sockets()
-            ]
-            # print("DRAM power: ", dram_power)
-            total_power = {
-                "package": sum(package_power),
-                "core": sum(core_power),
-                "dram": sum(dram_power),
-            }
-            # print("Total power: ", total_power)
-        else:
-            # print("Power measure is disabled")
-            total_power = {"package": 0, "core": 0, "dram": 0}
+        # Compute package/core/dram power in mW from RAPL samples
+        package_power = [
+            package_diff[skt].power_milliw() for skt in self.topology.get_sockets()
+        ]
+        # print("Package power: ", package_power)
+        core_power = [
+            core_diff[skt].power_milliw() for skt in self.topology.get_sockets()
+        ]
+        # print("Core power: ", core_power)
+        dram_power = [
+            dram_diff[skt].power_milliw() for skt in self.topology.get_sockets()
+        ]
+        # print("DRAM power: ", dram_power)
+
+        total_power = {
+            "package": sum(package_power),
+            "core": sum(core_power),
+            "dram": sum(dram_power),
+        }
 
         for key, data in self.pids.items():
             proc_info = ProcessInfo(len(self.topology.get_sockets()))
@@ -460,17 +459,29 @@ class BpfCollector:
                     )
                     add_proc = True
 
+            # --- ADD THIS BLOCK ---
+            # Try to set container_id using cgroup_id
+            try:
+                cgroup_id = ProcTable.find_cgroup_id(data.pid, data.tgid)
+                if cgroup_id is not None:
+                    proc_info.set_cgroup_id(cgroup_id)
+                    proc_info.set_container_id(cgroup_id[0:12])
+            except Exception:
+                pass
+            # After: cgroup_id = ProcTable.find_cgroup_id_static(data.pid, data.tgid)
+            # print(f"DEBUG: PID {data.pid} TGID {data.tgid} cgroup_id: {cgroup_id}")
+            # --- END BLOCK ---
+
             if add_proc:
                 pid_dict[data.pid] = proc_info
 
-                if self.power_measure == True:
-                    proc_info.set_power(
-                        self._get_pid_power(
-                            proc_info, total_weighted_cycles, core_power
-                        )
+                proc_info.set_power(
+                    self._get_pid_power(
+                        proc_info, total_weighted_cycles, core_power
                     )
-                else:
-                    proc_info.set_power(0)
+                )
+                # else:
+                #     proc_info.set_power(0)
                 proc_info.compute_cpu_usage_millis(
                     float(total_execution_time), multiprocessing.cpu_count()
                 )
@@ -501,19 +512,27 @@ class BpfCollector:
                     )
                     add_proc = True
 
+            # --- ADD THIS BLOCK ---
+            # Try to set container_id using cgroup_id
+            try:
+                cgroup_id = ProcTable.find_cgroup_id(data.pid, data.tgid)
+                if cgroup_id is not None:
+                    proc_info.set_cgroup_id(cgroup_id)
+                    proc_info.set_container_id(cgroup_id[0:12])
+            except Exception:
+                pass
+            # After: cgroup_id = ProcTable.find_cgroup_id_static(data.pid, data.tgid)
+            # print(f"DEBUG: PID {data.pid} TGID {data.tgid} cgroup_id: {cgroup_id}")
+            # --- END BLOCK ---
+
             if add_proc:
                 pid_dict[-1 * (1 + int(key.value))] = proc_info
-                if self.power_measure == True:
-                    proc_info.set_power(
-                        self._get_pid_power(
-                            proc_info, total_weighted_cycles, core_power
-                        )
+                proc_info.set_power(
+                    self._get_pid_power(
+                        proc_info, total_weighted_cycles, core_power
                     )
-                else:
-                    proc_info.set_power(0)
-                proc_info.compute_cpu_usage_millis(
-                    float(total_execution_time), multiprocessing.cpu_count()
                 )
+                print(f"DEBUG: PID {data.pid} power: {proc_info.get_power()}")  
 
         return BpfSample(
             tsmax,

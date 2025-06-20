@@ -1,4 +1,4 @@
-window_mode:                      "fixed"
+window_mode:                      "dynamic"
 output_format:                    "json"
 debug_mode:                       True
 send_thread_data:                 True
