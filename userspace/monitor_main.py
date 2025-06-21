@@ -30,6 +30,8 @@ import time
 import re
 
 pattern = re.compile(r"^nxf.*")
+seen_nxf_containers = set()
+nxf_counter = 0
 
 
 class MonitorMain:
@@ -185,14 +187,16 @@ class MonitorMain:
                             # container_name = value.get('container_name', '')
                             container_name = getattr(value, 'container_name', '')
                             if pattern.match(container_name):
-                                print(f"Container {key} name matches: {container_name}")
-                                nxf_counter += 1
-                                print(f"Nextflow task count: {nxf_counter}")
+                                if key not in seen_nxf_containers:
+                                    seen_nxf_containers.add(key)
+                                    nxf_counter += 1
+                                    print(f"Container {key} name matches: {container_name}")
+                                    print(f"Nextflow unique task count: {nxf_counter}")
                             # Defensive: handle missing to_json
-                                if hasattr(value, "to_json"):
-                                    print(value.to_json())
-                                else:
-                                    print(str(value))
+                                    if hasattr(value, "to_json"):
+                                        print(value.to_json())
+                                    else:
+                                        print(str(value))
                             else:
                                 print("No nextflow container found yet.")
                     else:
