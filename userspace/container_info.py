@@ -23,20 +23,8 @@ import time
 from .net_collector import TransactionData
 from .net_collector import TransactionType
 from .net_collector import TransactionRole
-import numpy as np
 from ddsketch.ddsketch import DDSketch
-
-class bcolors:
-    RED = '\033[91m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    MAGENTA = '\033[95m'
-    CYAN = '\033[96m'
-    WHITE = '\033[97m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+import numpy as np
 
 class ContainerInfo:
 
@@ -408,123 +396,141 @@ class ContainerInfo:
     def get_tcp_percentiles(self):
         return [self.pct, self.tcp_percentiles]
 
+    # def to_dict(self):
+    #     return {'container_id': self.container_id,
+    #             'cycles': self.cycles,
+    #             'weighted_cycles': self.weighted_cycles,
+    #             'instruction_retired': self.instruction_retired,
+    #             'cache_misses': self.cache_misses,
+    #             'cache_refs': self.cache_refs,
+    #             'cycles': self.cycles,
+    #             'time_ns': self.time_ns,
+    #             'power': self.power,
+    #             'cpu_usage': self.cpu_usage,
+    #             'pid_set': self.pid_set
+    #             }
+
     def to_dict(self):
-        return {'container_id': self.container_id,
+        return {
+                'container_id': self.container_id,
+                'container_name': self.container_name,
+                # 'container_image': self.container_image,
+                # 'container_labels': self.container_labels,
                 'cycles': self.cycles,
                 'weighted_cycles': self.weighted_cycles,
                 'instruction_retired': self.instruction_retired,
                 'cache_misses': self.cache_misses,
                 'cache_refs': self.cache_refs,
-                'cycles': self.cycles,
                 'time_ns': self.time_ns,
                 'power': self.power,
                 'cpu_usage': self.cpu_usage,
-                'pid_set': self.pid_set
-                }
+                'pid_set': list(self.pid_set),
+                # Memory
+                'mem_RSS': self.mem_RSS,
+                'mem_PSS': self.mem_PSS,
+                'mem_USS': self.mem_USS,
+                # Disk
+                'kb_r': self.kb_r,
+                'kb_w': self.kb_w,
+                'num_r': self.num_r,
+                'num_w': self.num_w,
+                'disk_avg_lat': self.disk_avg_lat,
+                # # Network TCP
+                # 'tcp_transaction_count': self.tcp_transaction_count,
+                # 'tcp_byte_tx': self.tcp_byte_tx,
+                # 'tcp_byte_rx': self.tcp_byte_rx,
+                # 'tcp_avg_latency': self.tcp_avg_latency,
+                # 'tcp_percentiles': self.tcp_percentiles,
+                # # Network HTTP
+                # # Network HTTP
+                # 'http_transaction_count': self.http_transaction_count,
+                # 'http_byte_tx': self.http_byte_tx,
+                # 'http_byte_rx': self.http_byte_rx,
+                # 'http_avg_latency': self.http_avg_latency,
+                # 'http_percentiles': self.http_percentiles,
+                # # NAT and network transactions (optional, can be large)
+                # 'nat_rules': [str(n) for n in self.nat_rules],
+                # 'network_transactions': [str(t) for t in self.network_transactions],
+        }
 
     def to_json(self):
         d = self.to_dict()
         d['pid_set'] = list(d['pid_set'])
         return json.dumps(d, indent=4)
-
+            
     def __str__(self):
         fmt = '{:<28} {:<32} {:<34} {:<34} {:<34} {:<34} {:<38} {:<30} {:<30}'
-        output_line = fmt.format (
-                bcolors.BLUE + "ID: " + bcolors.ENDC
-                    + self.container_id,
-                bcolors.BLUE + "CYCLES: " + bcolors.ENDC
-                    + str(self.cycles),
-                bcolors.BLUE + "W_CYCLES: " + bcolors.ENDC
-                    + str(self.weighted_cycles),
-                bcolors.BLUE + "INSTR RET: " + bcolors.ENDC
-                    + str(self.instruction_retired),
-                bcolors.BLUE + "CACHE MISS: " + bcolors.ENDC
-                    + str(self.cache_misses),
-                bcolors.BLUE + "CACHE REFS: " + bcolors.ENDC
-                    +str(self.cache_refs),
-                bcolors.BLUE + "EXEC TIME (s): " + bcolors.ENDC
-                    + '{:.5f}'.format(self.time_ns / 1000000000),
-                bcolors.BLUE + "CPU USAGE: " + bcolors.ENDC
-                    + '{:.3f}'.format(self.cpu_usage),
-                bcolors.GREEN + "TOTAL POWER (mW): " + bcolors.ENDC
-                    + '{:.3f}'.format(self.power)
-                )
+        output_line = fmt.format(
+            "ID: " + self.container_id,
+            "CYCLES: " + str(self.cycles),
+            "W_CYCLES: " + str(self.weighted_cycles),
+            "INSTR RET: " + str(self.instruction_retired),
+            "CACHE MISS: " + str(self.cache_misses),
+            "CACHE REFS: " + str(self.cache_refs),
+            "EXEC TIME (s): " + '{:.5f}'.format(self.time_ns / 1000000000),
+            "CPU USAGE: " + '{:.3f}'.format(self.cpu_usage),
+            "TOTAL POWER (mW): " + '{:.3f}'.format(self.power)
+        )
 
         if self.mem_RSS > 0:
             fmt = '{:<20} {:<23} {:<23} {:<23}'
             output_line = output_line + "\n" + fmt.format(
-                    bcolors.GREEN + "\tMemory (kB): " + bcolors.ENDC,
-                    bcolors.BLUE + "RSS: " + bcolors.ENDC
-                        + str(self.mem_RSS),
-                    bcolors.BLUE + "PSS: " + bcolors.ENDC
-                        + str(self.mem_PSS),
-                    bcolors.BLUE + "USS: " + bcolors.ENDC
-                        + str(self.mem_USS)
+                "\tMemory (kB):",
+                "RSS: " + str(self.mem_RSS),
+                "PSS: " + str(self.mem_PSS),
+                "USS: " + str(self.mem_USS)
             )
 
         if (self.kb_r > 0 or self.kb_w > 0):
             fmt = '{:<20} {:<23} {:<23} {:<23} {:<23} {:23}'
             output_line = output_line + "\n" + fmt.format(
-                    bcolors.GREEN + "\tDisk Stats: " + bcolors.ENDC,
-                    bcolors.BLUE + "Kb R: " + bcolors.ENDC
-                        + str(self.kb_r),
-                    bcolors.BLUE + "Kb W: " + bcolors.ENDC
-                        + str(self.kb_w),
-                    bcolors.BLUE + "NUM R: " + bcolors.ENDC
-                        + str(self.num_r),
-                    bcolors.BLUE + "NUM W: " + bcolors.ENDC
-                        + str(self.num_w),
-                    bcolors.BLUE + "AVG LAT (ms): " + bcolors.ENDC
-                        + str(round(self.disk_avg_lat,3))
+                "\tDisk Stats:",
+                "Kb R: " + str(self.kb_r),
+                "Kb W: " + str(self.kb_w),
+                "NUM R: " + str(self.num_r),
+                "NUM W: " + str(self.num_w),
+                "AVG LAT (ms): " + str(round(self.disk_avg_lat, 3))
             )
 
         if self.http_transaction_count > 0:
             fmt = '{:<5} {:<32} {:<34} {:<34} {:<34}'
             output_line = output_line + "\n" + fmt.format(
-                    bcolors.BLUE + "--->" + bcolors.ENDC,
-                    bcolors.BLUE + "HTTP_T_COUNT: " + bcolors.ENDC
-                        + str(self.http_transaction_count),
-                    bcolors.BLUE + "HTTP_BYTE_SENT: " + bcolors.ENDC
-                        + str(self.http_byte_tx),
-                    bcolors.BLUE + "HTTP_BYTE_RECV: " + bcolors.ENDC
-                        + str(self.http_byte_rx),
-                    bcolors.BLUE + "HTTP_AVG_LATENCY (ms): " + bcolors.ENDC
-                        + '{:.3f}'.format(self.http_avg_latency)
-                    )
+                "--->",
+                "HTTP_T_COUNT: " + str(self.http_transaction_count),
+                "HTTP_BYTE_SENT: " + str(self.http_byte_tx),
+                "HTTP_BYTE_RECV: " + str(self.http_byte_rx),
+                "HTTP_AVG_LATENCY (ms): " + '{:.3f}'.format(self.http_avg_latency)
+            )
             fmt = '{:<5} {:<30} {:<30} {:<30} {:<30} {:<30} {:<30} {:<30}'
             output_line = output_line + "\n" + fmt.format(
-                    bcolors.BLUE + "--->" + bcolors.ENDC,
-                    bcolors.BLUE + "50p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[0]),
-                    bcolors.BLUE + "75p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[1]),
-                    bcolors.BLUE + "90p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[2]),
-                    bcolors.BLUE + "99p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[3]),
-                    bcolors.BLUE + "99.9p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[4]),
-                    bcolors.BLUE + "99.99p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[5]),
-                    bcolors.BLUE + "99.999p: " + bcolors.ENDC + '{:.5f}'.format(self.http_percentiles[6]),
+                "--->",
+                "50p: " + '{:.5f}'.format(self.http_percentiles[0]),
+                "75p: " + '{:.5f}'.format(self.http_percentiles[1]),
+                "90p: " + '{:.5f}'.format(self.http_percentiles[2]),
+                "99p: " + '{:.5f}'.format(self.http_percentiles[3]),
+                "99.9p: " + '{:.5f}'.format(self.http_percentiles[4]),
+                "99.99p: " + '{:.5f}'.format(self.http_percentiles[5]),
+                "99.999p: " + '{:.5f}'.format(self.http_percentiles[6]),
             )
 
         if self.tcp_transaction_count > 0:
             fmt = '{:<5} {:<32} {:<34} {:<34} {:<34}'
             output_line = output_line + "\n" + fmt.format(
-                    bcolors.BLUE + "--->" + bcolors.ENDC,
-                    bcolors.BLUE + "TCP_T_COUNT: " + bcolors.ENDC
-                        + str(self.tcp_transaction_count),
-                    bcolors.BLUE + "TCP_BYTE_SENT: " + bcolors.ENDC
-                        + str(self.tcp_byte_tx),
-                    bcolors.BLUE + "TCP_BYTE_RECV: " + bcolors.ENDC
-                        + str(self.tcp_byte_rx),
-                    bcolors.BLUE + "TCP_AVG_LATENCY (ms): " + bcolors.ENDC
-                        + '{:.3f}'.format(self.tcp_avg_latency)
-                    )
+                "--->",
+                "TCP_T_COUNT: " + str(self.tcp_transaction_count),
+                "TCP_BYTE_SENT: " + str(self.tcp_byte_tx),
+                "TCP_BYTE_RECV: " + str(self.tcp_byte_rx),
+                "TCP_AVG_LATENCY (ms): " + '{:.3f}'.format(self.tcp_avg_latency)
+            )
             fmt = '{:<5} {:<30} {:<30} {:<30} {:<30} {:<30} {:<30} {:<30}'
             output_line = output_line + "\n" + fmt.format(
-                    bcolors.BLUE + "--->" + bcolors.ENDC,
-                    bcolors.BLUE + "50p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[0]),
-                    bcolors.BLUE + "75p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[1]),
-                    bcolors.BLUE + "90p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[2]),
-                    bcolors.BLUE + "99p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[3]),
-                    bcolors.BLUE + "99.9p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[4]),
-                    bcolors.BLUE + "99.99p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[5]),
-                    bcolors.BLUE + "99.999p: " + bcolors.ENDC + '{:.5f}'.format(self.tcp_percentiles[6]),
+                "--->",
+                "50p: " + '{:.5f}'.format(self.tcp_percentiles[0]),
+                "75p: " + '{:.5f}'.format(self.tcp_percentiles[1]),
+                "90p: " + '{:.5f}'.format(self.tcp_percentiles[2]),
+                "99p: " + '{:.5f}'.format(self.tcp_percentiles[3]),
+                "99.9p: " + '{:.5f}'.format(self.tcp_percentiles[4]),
+                "99.99p: " + '{:.5f}'.format(self.tcp_percentiles[5]),
+                "99.999p: " + '{:.5f}'.format(self.tcp_percentiles[6]),
             )
         return output_line

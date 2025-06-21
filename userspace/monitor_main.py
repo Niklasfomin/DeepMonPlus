@@ -27,6 +27,9 @@ from .mem_collector import MemCollector
 from .disk_collector import DiskCollector
 from .rapl.rapl import RaplMonitor
 import time
+import re
+
+pattern = re.compile(r"^nxf.*")
 
 
 class MonitorMain:
@@ -152,6 +155,7 @@ class MonitorMain:
         ]
 
     def monitor_loop(self):
+        nxf_counter = 0
         if self.window_mode == "dynamic":
             time_to_sleep = self.sample_controller.get_sleep_time()
         else:
@@ -172,18 +176,25 @@ class MonitorMain:
             if self.output_format == "json":
                 try:
                     # Print global/sample-level power and timing info ONCE
-                    print("Sample (global) stats:")
-                    print(sample.get_log_json())
+                    # print("Sample (global) stats:")
+                    # print(sample.get_log_json())
 
                     # Then print each container's info
                     if container_list:
                         for key, value in container_list.items():
-                            print(f"Container ID: {key}")
+                            # container_name = value.get('container_name', '')
+                            container_name = getattr(value, 'container_name', '')
+                            if pattern.match(container_name):
+                                print(f"Container {key} name matches: {container_name}")
+                                nxf_counter += 1
+                                print(f"Nextflow task count: {nxf_counter}")
                             # Defensive: handle missing to_json
-                            if hasattr(value, "to_json"):
-                                print(value.to_json())
+                                if hasattr(value, "to_json"):
+                                    print(value.to_json())
+                                else:
+                                    print(str(value))
                             else:
-                                print(str(value))
+                                print("No nextflow container found yet.")
                     else:
                         print("No containers found in this sample.")
                 except AttributeError as e:

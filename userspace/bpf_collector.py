@@ -150,25 +150,27 @@ class BpfCollector:
         bpf_code_path = (
             os.path.dirname(os.path.abspath(__file__)) + "/../bpf/bpf_monitor.c"
         )
-        if debug is False:
+        # if debug is False:
             # if self.power_measure == True:
-            self.bpf_program = BPF(
-                src_file=bpf_code_path,
-                cflags=[
-                    "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
-                    "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
-                    "-DPERFORMANCE_COUNTERS",
-                ],
-            )
-        else:
-            self.bpf_program = BPF(
-                src_file=bpf_code_path,
-                cflags=[
-                    "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
-                    "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
-                    "-DDEBUG",
-                ],
-            )
+        self.bpf_program = BPF(
+            src_file=bpf_code_path,
+            cflags=[
+                "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
+                "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
+                "-DPERFORMANCE_COUNTERS",
+                "-DDEBUG",
+            ],
+        )
+        # print("Available BPF tables:", list(self.bpf_program.tables.keys()))
+        # else:
+        #     self.bpf_program = BPF(
+        #         src_file=bpf_code_path,
+        #         cflags=[
+        #             "-DNUM_CPUS=%d" % multiprocessing.cpu_count(),
+        #             "-DNUM_SOCKETS=%d" % len(self.topology.get_sockets()),
+        #             "-DDEBUG",
+        #         ],
+        #     )
 
         self.processors = self.bpf_program.get_table("processors")
         self.pids = self.bpf_program.get_table("pids")
@@ -198,41 +200,45 @@ class BpfCollector:
         #     )
         #     if self.power_measure == True:
         try:
-            print("Opening cycles_core perf event...")
-            self.bpf_program["cycles_core"].open_perf_event(4, int("73003c", 16))
-            print("cycles_core opened successfully.")
+            # print("Opening cycles_core perf event...")
+            # self.bpf_program["cycles_core"].open_perf_event(4, int("73003c", 16))
+            self.bpf_program["cycles_core"].open_perf_event(PerfType.HARDWARE, PerfHWConfig.CPU_CYCLES)
+            # print("cycles_core opened successfully.")
         except Exception as e:
             print(f"Error opening cycles_core: {e}")
+            traceback.print_exc()
 
         try:
-            print("Opening cycles_thread perf event...")
-            self.bpf_program["cycles_thread"].open_perf_event(4, int("53003c", 16))
-            print("cycles_thread opened successfully.")
+            # print("Opening cycles_thread perf event...")
+            # self.bpf_program["cycles_thread"].open_perf_event(4, int("53003c", 16))
+            self.bpf_program["cycles_thread"].open_perf_event(PerfType.HARDWARE, PerfHWConfig.CPU_CYCLES)
+            # print("cycles_thread opened successfully.")
         except Exception as e:
             print(f"Error opening cycles_thread: {e}")
 
         try:
-            print("Opening instr_thread perf event...")
-            self.bpf_program["instr_thread"].open_perf_event(4, int("5300c0", 16))
-            print("instr_thread opened successfully.")
+            # print("Opening instr_thread perf event...")
+            # self.bpf_program["instr_thread"].open_perf_event(4, int("5300c0", 16))
+            self.bpf_program["instr_thread"].open_perf_event(PerfType.HARDWARE, PerfHWConfig.INSTRUCTIONS)
+            # print("instr_thread opened successfully.")
         except Exception as e:
             print(f"Error opening instr_thread: {e}")
 
         try:
-            print("Opening cache_misses perf event...")
+            # print("Opening cache_misses perf event...")
             self.bpf_program["cache_misses"].open_perf_event(
                 PerfType.HARDWARE, PerfHWConfig.CACHE_MISSES
             )
-            print("cache_misses opened successfully.")
+            # print("cache_misses opened successfully.")
         except Exception as e:
             print(f"Error opening cache_misses: {e}")
 
         try:
-            print("Opening cache_refs perf event...")
+            # print("Opening cache_refs perf event...")
             self.bpf_program["cache_refs"].open_perf_event(
                 PerfType.HARDWARE, PerfHWConfig.CACHE_REFERENCES
             )
-            print("cache_refs opened successfully.")
+            # print("cache_refs opened successfully.")
         except Exception as e:
             print(f"Error opening cache_refs: {e}")
 
@@ -381,17 +387,15 @@ class BpfCollector:
                     total_execution_time + float(data.time_ns[read_selector]) / 1000000
                 )
 
-            if self.power_measure == True:
-                for multisocket_selector in range(
+            # if self.power_measure == True:
+            for multisocket_selector in range(
                     read_selector, total_slots_length, self.SELECTOR_DIM
                 ):
                     # Compute the number of total weighted cycles per socket
                     cycles_index = int(multisocket_selector / self.SELECTOR_DIM)
-                    if data.ts[read_selector] + self.timeslice > tsmax:
-                        total_weighted_cycles[cycles_index] = (
-                            total_weighted_cycles[cycles_index]
-                            + data.weighted_cycles[multisocket_selector]
-                        )
+                    # if data.ts[read_selector] + self.timeslice > tsmax:
+                    total_weighted_cycles[cycles_index] = (total_weighted_cycles[cycles_index]+ data.weighted_cycles[multisocket_selector])
+                        
 
         # Add the count of clock cycles for each idle process to the total
         # number of clock cycles of the socket
@@ -401,14 +405,14 @@ class BpfCollector:
                     total_execution_time + float(data.time_ns[read_selector]) / 1000000
                 )
 
-            if self.power_measure == True:
-                for multisocket_selector in range(
+            # if self.power_measure == True:
+            for multisocket_selector in range(
                     read_selector, total_slots_length, self.SELECTOR_DIM
                 ):
                     # Compute the number of total weighted cycles per socket
                     cycles_index = int(multisocket_selector / self.SELECTOR_DIM)
-                    if data.ts[read_selector] + self.timeslice > tsmax:
-                        total_weighted_cycles[cycles_index] = (
+                    # if data.ts[read_selector] + self.timeslice > tsmax:
+                    total_weighted_cycles[cycles_index] = (
                             total_weighted_cycles[cycles_index]
                             + data.weighted_cycles[multisocket_selector]
                         )
@@ -480,6 +484,8 @@ class BpfCollector:
                         proc_info, total_weighted_cycles, core_power
                     )
                 )
+                # print("DEBUG: total_weighted_cycles:", total_weighted_cycles)
+                # print("DEBUG: core_power:", core_power)
                 # else:
                 #     proc_info.set_power(0)
                 proc_info.compute_cpu_usage_millis(
@@ -532,7 +538,7 @@ class BpfCollector:
                         proc_info, total_weighted_cycles, core_power
                     )
                 )
-                print(f"DEBUG: PID {data.pid} power: {proc_info.get_power()}")  
+                # print(f"DEBUG: PID {data.pid} power: {proc_info.get_power()}")  
 
         return BpfSample(
             tsmax,
@@ -544,15 +550,26 @@ class BpfCollector:
             self.topology.get_hyperthread_count(),
         )
 
+    # def _get_pid_power(self, pid, total_cycles, core_power):
+    #     pid_power = 0
+    #     for socket in self.topology.get_sockets():
+    #         if float(total_cycles[socket]) > 0:
+    #             pid_power = pid_power + (
+    #                 core_power[socket]
+    #                 * (
+    #                     float(pid.get_socket_data(socket).get_weighted_cycles())
+    #                     / float(total_cycles[socket])
+    #                 )
+    #             )
+    #     return pid_power
+
     def _get_pid_power(self, pid, total_cycles, core_power):
-        pid_power = 0
+        pid_power = 0.0
         for socket in self.topology.get_sockets():
-            if float(total_cycles[socket]) > 0:
-                pid_power = pid_power + (
-                    core_power[socket]
-                    * (
-                        float(pid.get_socket_data(socket).get_weighted_cycles())
-                        / float(total_cycles[socket])
-                    )
-                )
+            tc = float(total_cycles[socket])
+            if tc > 0:
+                wc = float(pid.get_socket_data(socket).get_weighted_cycles())
+                pid_power += core_power[socket] * (wc / tc)
         return pid_power
+
+ 

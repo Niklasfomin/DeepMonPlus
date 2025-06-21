@@ -26,11 +26,11 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US.UTF-8
 
 # 4. Use llvm.sh to configure the LLVM 10 repo (BUT do NOT install 'all')
-RUN wget https://apt.llvm.org/llvm.sh \
-  && chmod +x llvm.sh \
-  # Just '10' sets up repo & installs a minimal subset, avoiding libunwind-10-dev
-  && ./llvm.sh 14 \
-  && rm llvm.sh
+# RUN wget https://apt.llvm.org/llvm.sh \
+#   && chmod +x llvm.sh \
+#   # Just '10' sets up repo & installs a minimal subset, avoiding libunwind-10-dev
+#   && ./llvm.sh 14 \
+#   && rm llvm.sh
 
 # 5. Manually install needed LLVM 10 packages (omit libunwind-10-dev)
 RUN apt-get update && apt-get install -y \
@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y \
   llvm-14-dev \
   libclang-14-dev \
   # If you need polly:
-  # libpolly-18-dev \
+  # libpolly-14-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # 6. Install build dependencies for BCC
@@ -77,6 +77,8 @@ RUN git clone https://github.com/iovisor/bcc.git \
   && cmake \
   -DCMAKE_C_COMPILER=/usr/bin/clang-14 \
   -DCMAKE_CXX_COMPILER=/usr/bin/clang++-14 \
+  -DBUILD_EXAMPLES=OFF \
+  -DBUILD_TESTS=OFF \
   .. \
   && make -j"$(nproc)" \
   && make install \

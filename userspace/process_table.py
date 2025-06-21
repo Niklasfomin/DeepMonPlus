@@ -50,7 +50,7 @@ class ProcTable:
         self.proc_table[proc_info.get_pid()] = proc_info
 
     def add_process_from_sample(self, sample, net_dictionary=None, nat_dictionary=None):
-        print(f"DEBUG: add_process_from_sample called with {len(sample.get_pid_dict())} processes")
+        # print(f"DEBUG: add_process_from_sample called with {len(sample.get_pid_dict())} processes")
         # reset counters for each entries
         for key, value in sample.get_pid_dict().items():
             if key in self.proc_table:
@@ -75,7 +75,7 @@ class ProcTable:
                             value.set_cgroup_id(cgroup_id)
                             value.set_container_id(cgroup_id[0:12])
                             self.proc_table[key] = value
-                            print(f"DEBUG: Added PID {value.get_pid()} with container_id: {value.container_id}")
+                            # print(f"DEBUG: Added PID {value.get_pid()} with container_id: {value.container_id}")
                     except Exception as e:
                         # print(f"Error finding cgroup_id for key {key}: {e}")
                         continue
@@ -87,7 +87,7 @@ class ProcTable:
                         value.set_cgroup_id(cgroup_id)
                         value.set_container_id(cgroup_id[0:12])
                         self.proc_table[key] = value
-                        print(f"DEBUG: Added PID {value.get_pid()} with container_id: {value.container_id}")
+                        # print(f"DEBUG: Added PID {value.get_pid()} with container_id: {value.container_id}")
                 except Exception as e:
                     # print(f"Error finding cgroup_id for key {key}: {e}")
                     continue
@@ -182,11 +182,11 @@ class ProcTable:
         return self.proc_table
 
     def get_container_dictionary(self, mem_dictionary=None, disk_dictionary=None):
-        print("DEBUG: get_container_dictionary called")
+        # print("DEBUG: get_container_dictionary called")
         container_dict = {}
 
         for key, value in self.proc_table.items():
-            print(f"DEBUG: proc_table PID {key} container_id: {value.container_id}")
+            # print(f"DEBUG: proc_table PID {key} container_id: {value.container_id}")
             if value.container_id:
                 if value.container_id not in container_dict:
                     container_dict[value.container_id] = ContainerInfo(
