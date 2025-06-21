@@ -52,7 +52,7 @@ class MonitorMain:
         self.output_format = output_format
         self.window_mode = window_mode
         # TODO: Don't hardcode the frequency
-        self.frequency = 1
+        self.frequency = 2
 
         self.topology = ProcTopology()
         self.collector = BpfCollector(self.topology, debug_mode, power_measure)
@@ -168,12 +168,12 @@ class MonitorMain:
                 time.sleep(time_to_sleep)
             start_time = time.time()
 
+            t1 = time.time()
             sample_array = self.get_sample()
+            print(f"get_sample() duration: {time.time() - t1:.2f} seconds")
+            t2 = time.time()
             sample = sample_array[0]
             container_list = sample_array[1]
-
-            # --- FIX: Print container keys for debugging ---
-            print(f"DEBUG: container_list keys: {list(container_list.keys())}")
 
             if self.output_format == "json":
                 try:
@@ -223,9 +223,13 @@ class MonitorMain:
                 else:
                     print("No containers found in this sample.")
 
+            print(f"logging/printing duration: {time.time() - t2:.2f} seconds")
+
             if self.window_mode == "dynamic":
                 time_to_sleep = self.sample_controller.get_sleep_time() - (
                     time.time() - start_time
                 )
             else:
                 time_to_sleep = 1 / self.frequency - (time.time() - start_time)
+
+            print(f"Loop duration: {time.time() - start_time:.2f} seconds")
