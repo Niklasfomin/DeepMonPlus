@@ -21,10 +21,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import click
 import yaml
 
-# try:
-    # from yaml import CLoader as Loader
-# except ImportError:
-    # from yaml import Loader
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
 
 if __name__ == "__main__":
     from userspace.monitor_main import MonitorMain
@@ -48,18 +48,20 @@ CONTEXT_SETTINGS = dict(default_map=config)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.option("--window-mode", "-w")
-@click.option("--output-format", "-o")
+@click.option("--container-regex", "-r", default="*")
+@click.option("--window-mode", "-w", default="fixed")
+@click.option("--output-format", "-o", default="json")
 @click.option("--debug-mode", "-d")
-@click.option("--net_monitor", "-n")
-@click.option("--nat_trace")
-@click.option("--print_net_details")
+@click.option("--net_monitor", "-n", default="True")
+@click.option("--nat_trace", default="True")
+@click.option("--print_net_details", default="True")
 @click.option("--dynamic_tcp_client_port_masking")
-@click.option("--power_measure")
-@click.option("--memory_measure")
-@click.option("--disk_measure")
-@click.option("--file_measure")
+@click.option("--power_measure", default="True")
+@click.option("--memory_measure", default="True")
+@click.option("--disk_measure", default="True")
+@click.option("--file_measure", default="True")
 def main(
+    container_regex,
     window_mode,
     output_format,
     debug_mode,
@@ -73,8 +75,9 @@ def main(
     file_measure,
 ):
     monitor = MonitorMain(
-        output_format,
+        container_regex,
         window_mode,
+        output_format,
         debug_mode,
         net_monitor,
         nat_trace,
@@ -85,11 +88,8 @@ def main(
         disk_measure,
         file_measure,
     )
-    if output_format == "console":
-        monitor.monitor_loop()
 
-    elif output_format == "json":
-        monitor.monitor_loop()
+    monitor.monitor_loop()
 
 
 if __name__ == "__main__":

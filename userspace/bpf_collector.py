@@ -387,7 +387,7 @@ class BpfCollector:
 
         # Propagate the update of the selector to the eBPF program
         print(
-            f"DEBUG: tsmax before selector switch: {self.bpf_global_timestamps[ct.c_int(read_selector)].value}"
+            # f"DEBUG: tsmax before selector switch: {self.bpf_global_timestamps[ct.c_int(read_selector)].value}"
         )
         self.bpf_config[ct.c_int(0)] = ct.c_uint(self.selector)
         time.sleep(0.01)

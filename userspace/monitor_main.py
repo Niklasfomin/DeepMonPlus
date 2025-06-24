@@ -31,75 +31,35 @@ import pprint
 import re
 import prometheus_client as prom
 
-pattern = re.compile(r"^cadvisor.*")
 seen_nxf_containers = set()
 nxf_counter = 0
 
 # Prometheus metrics
-container_cpu_usage = prom.Gauge(
-    "container_cpu_usage", "CPU usage per container", ["container_id"]
-)
-container_cycles = prom.Gauge(
-    "container_cycles", "Cycles per container", ["container_id"]
-)
-container_weighted_cycles = prom.Gauge(
-    "container_weighted_cycles",
-    "Weighted cycles per container",
-    ["container_id"],
-)
-container_instruction_retired = prom.Gauge(
-    "container_instruction_retired",
-    "Instructions retired per container",
-    ["container_id"],
-)
-container_cache_misses = prom.Gauge(
-    "container_cache_misses", "Cache misses per container", ["container_id"]
-)
-container_cache_refs = prom.Gauge(
-    "container_cache_refs", "Cache references per container", ["container_id"]
-)
-container_power = prom.Gauge(
-    "container_power", "Power usage per container", ["container_id"]
-)
-container_mem_RSS = prom.Gauge(
-    "container_mem_rss",
-    "Resident Set Size memory per container",
-    ["container_id"],
-)
-container_mem_PSS = prom.Gauge(
-    "container_mem_pss",
-    "Proportional Set Size memory per container",
-    ["container_id"],
-)
-container_mem_USS = prom.Gauge(
-    "container_mem_uss",
-    "Unique Set Size memory per container",
-    ["container_id"],
-)
-container_kb_r = prom.Gauge(
-    "container_kb_r", "Kilobytes read per container", ["container_id"]
-)
-container_kb_w = prom.Gauge(
-    "container_kb_w", "Kilobytes written per container", ["container_id"]
-)
-container_num_reads = prom.Gauge(
-    "container_num_reads", "Number of reads per container", ["container_id"]
-)
-container_num_writes = prom.Gauge(
-    "container_num_writes", "Number of writes per container", ["container_id"]
-)
-container_disk_avg_lat = prom.Gauge(
-    "container_disk_avg_lat",
-    "Average disk latency per container",
-    ["container_id"],
-)
+CONTAINER_METRICS = [
+    ("container_cpu_usage", "CPU usage per container"),
+    ("container_cycles", "Cycles per container"),
+    ("container_weighted_cycles", "Weighted cycles per container"),
+    ("container_instruction_retired", "Instructions retired per container"),
+    ("container_cache_misses", "Cache misses per container"),
+    ("container_cache_refs", "Cache references per container"),
+    ("container_power", "Power usage per container"),
+    ("container_mem_rss", "Resident Set Size memory per container"),
+    ("container_mem_pss", "Proportional Set Size memory per container"),
+    ("container_mem_uss", "Unique Set Size memory per container"),
+    ("container_kb_r", "Kilobytes read per container"),
+    ("container_kb_w", "Kilobytes written per container"),
+    ("container_num_reads", "Number of reads per container"),
+    ("container_num_writes", "Number of writes per container"),
+    ("container_disk_avg_lat", "Average disk latency per container"),
+]
 
 
 class MonitorMain:
     def __init__(
         self,
-        output_format,
+        container_regex,
         window_mode,
+        output_format,
         debug_mode,
         net_monitor,
         nat_trace,
@@ -111,9 +71,14 @@ class MonitorMain:
         file_measure,
     ):
         self.output_format = output_format
-        self.window_mode = window_mode
+        self.container_regex = container_regex
+        self.container_pattern = (
+            re.compile(container_regex) if container_regex else None
+        )
+
         # TODO: Don't hardcode the frequency
         self.frequency = 1
+        self.window_mode = window_mode
 
         self.topology = ProcTopology()
         self.collector = BpfCollector(self.topology, debug_mode, power_measure)
@@ -217,16 +182,32 @@ class MonitorMain:
             file_dict,
         ]
 
-    def log2prometheus(self, container_list):
+    def log2prometheus(self, container_list, container_metrics):
         """
         Convert container list to Prometheus metrics.
         This function is called to update the Prometheus metrics with the latest container data.
         """
 
-        # Define Prometheus metrics
+        metric_names = [
+            "container_cpu_usage",
+            "container_cycles",
+            "container_weighted_cycles",
+            "container_instruction_retired",
+            "container_cache_misses",
+            "container_cache_refs",
+            "container_power",
+            "container_mem_rss",
+            "container_mem_pss",
+            "container_mem_uss",
+            "container_kb_r",
+            "container_kb_w",
+            "container_num_reads",
+            "container_num_writes",
+            "container_disk_avg_lat",
+        ]
 
-        for key, value in container_list.items():
-            try:
+        try:
+            for key, value in container_list.items():
                 cpu_usage = float(getattr(value, "cpu_usage", 0) or 0)
                 cycles = float(getattr(value, "cycles", 0) or 0)
                 weighted_cycles = float(getattr(value, "weighted_cycles", 0) or 0)
@@ -245,48 +226,107 @@ class MonitorMain:
                 num_writes = float(getattr(value, "num_w", 0) or 0)
                 disk_avg_lat = float(getattr(value, "disk_avg_lat", 0) or 0)
 
-                container_cpu_usage.labels(container_id=key).set(cpu_usage)
-                container_cycles.labels(container_id=key).set(cycles)
-                container_weighted_cycles.labels(container_id=key).set(weighted_cycles)
-                container_instruction_retired.labels(container_id=key).set(
-                    instruction_retired
+                container_metrics["container_cpu_usage"].labels(container_id=key).set(
+                    cpu_usage
                 )
-                container_cache_misses.labels(container_id=key).set(cache_misses)
-                container_cache_refs.labels(container_id=key).set(cache_refs)
-                container_power.labels(container_id=key).set(power)
-                container_mem_RSS.labels(container_id=key).set(mem_RSS)
-                container_mem_PSS.labels(container_id=key).set(mem_PSS)
-                container_mem_USS.labels(container_id=key).set(mem_USS)
-                container_kb_r.labels(container_id=key).set(kb_r)
-                container_kb_w.labels(container_id=key).set(kb_w)
-                container_num_reads.labels(container_id=key).set(num_reads)
-                container_num_writes.labels(container_id=key).set(num_writes)
-                container_disk_avg_lat.labels(container_id=key).set(disk_avg_lat)
-            except Exception as e:
-                print(f"Failed to update Prometheus metrics for container {key}: {e}")
+                container_metrics["container_cycles"].labels(container_id=key).set(
+                    cycles
+                )
+                container_metrics["container_weighted_cycles"].labels(
+                    container_id=key
+                ).set(weighted_cycles)
+                container_metrics["container_instruction_retired"].labels(
+                    container_id=key
+                ).set(instruction_retired)
+                container_metrics["container_cache_misses"].labels(
+                    container_id=key
+                ).set(cache_misses)
+                container_metrics["container_cache_refs"].labels(container_id=key).set(
+                    cache_refs
+                )
+                container_metrics["container_power"].labels(container_id=key).set(power)
+                container_metrics["container_mem_rss"].labels(container_id=key).set(
+                    mem_RSS
+                )
+                container_metrics["container_mem_pss"].labels(container_id=key).set(
+                    mem_PSS
+                )
+                container_metrics["container_mem_uss"].labels(container_id=key).set(
+                    mem_USS
+                )
+                container_metrics["container_kb_r"].labels(container_id=key).set(kb_r)
+                container_metrics["container_kb_w"].labels(container_id=key).set(kb_w)
+                container_metrics["container_num_reads"].labels(container_id=key).set(
+                    num_reads
+                )
+                container_metrics["container_num_writes"].labels(container_id=key).set(
+                    num_writes
+                )
+                container_metrics["container_disk_avg_lat"].labels(
+                    container_id=key
+                ).set(disk_avg_lat)
+
+            return metric_names
+        except Exception as e:
+            print(f"Failed to update Prometheus metrics for container {key}: {e}")
+            return []
 
     def monitor_loop(self):
-        # Run the exporter server
-        prom.start_http_server(8000)
+        if self.output_format == "prometheus":
+            prom.start_http_server(8000)
+            print("Prometheus metrics server started on port 8000")
+            print("Initializing Prometheus metrics")
+            # Define Prometheus metrics
+            container_metrics = {
+                name: prom.Gauge(name, desc, ["container_id"])
+                for name, desc in CONTAINER_METRICS
+            }
 
         # Debug prints for counting nextflow containers
         nxf_counter = 0
-        if self.window_mode == "dynamic":
-            time_to_sleep = self.sample_controller.get_sleep_time()
-        else:
-            time_to_sleep = 1 / self.frequency
+
+        # Setting the monitoring interval
+        time_to_sleep = 1 / self.frequency
 
         while True:
             if time_to_sleep > 0:
                 time.sleep(time_to_sleep)
             start_time = time.time()
-
-            t1 = time.time()
             sample_array = self.get_sample()
-            print(f"get_sample() duration: {time.time() - t1:.2f} seconds")
-            t2 = time.time()
-            sample = sample_array[0]
             container_list = sample_array[1]
+
+            if self.output_format == "prometheus":
+                print(
+                    f"Exporting metrics to Prometheus at {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                try:
+                    found = False
+                    if container_list:
+                        for key, value in container_list.items():
+                            container_name = getattr(value, "container_name", "")
+                            if self.container_pattern and self.container_pattern.match(
+                                container_name
+                            ):
+                                print(f"Container {key} name matches: {container_name}")
+                                found = True
+                                if key not in seen_nxf_containers:
+                                    seen_nxf_containers.add(key)
+                                    nxf_counter += 1
+                                    continue
+                                metrics = self.log2prometheus(
+                                    container_list, container_metrics
+                                )
+                                pprint.pprint(metrics)
+                                if not found:
+                                    print("No nextflow container found yet.")
+                            print(f"Nextflow unique task count: {nxf_counter}")
+                            pprint.pprint(seen_nxf_containers)
+                    else:
+                        print("No containers found in this sample.")
+                except AttributeError as e:
+                    print(f"AttributeError: {e}")
+                except Exception as e:
+                    print(f"Unexpected error: {e}")
 
             if self.output_format == "json":
                 try:
@@ -295,28 +335,29 @@ class MonitorMain:
                     # print(sample.get_log_json())
 
                     # Then print each container's info
+                    found = False
                     if container_list:
                         for key, value in container_list.items():
-                            # container_name = value.get('container_name', '')
                             container_name = getattr(value, "container_name", "")
-                            if pattern.match(container_name):
+                            if self.container_pattern and self.container_pattern.match(
+                                container_name
+                            ):
+                                found = True
                                 if key not in seen_nxf_containers:
                                     seen_nxf_containers.add(key)
                                     nxf_counter += 1
                                     print(
-                                        f"Container {key} name matches: {container_name}"
+                                        f"Container ID {key} name matches: {container_name}"
                                     )
-                                # Defensive: handle missing to_json
+                                    continue
                                 if hasattr(value, "to_json"):
                                     print(value.to_json())
-                                    # Send stuff to prometheus
-                                    self.log2prometheus(container_list)
-
                                 else:
                                     print(str(value))
-                            else:
-                                print("No nextflow container found yet.")
+                        if not found:
+                            print("No nextflow container found yet.")
                         print(f"Nextflow unique task count: {nxf_counter}")
+                        print("Caught Containers:")
                         pprint.pprint(seen_nxf_containers)
                     else:
                         print("No containers found in this sample.")
@@ -324,29 +365,4 @@ class MonitorMain:
                     print(f"AttributeError: {e}")
                 except Exception as e:
                     print(f"Unexpected error: {e}")
-
-            elif self.output_format == "console":
-                if self.print_net_details:
-                    nat_data = sample_array[3]
-                    for nat_rule in nat_data:
-                        print(nat_rule)
-
-                if container_list:
-                    for key, value in sorted(container_list.items()):
-                        print(value)
-                        if self.print_net_details:
-                            for item in value.get_network_transactions():
-                                print(item)
-                            for item in value.get_nat_rules():
-                                print(item)
-                else:
-                    print("No containers found in this sample.")
-
-            if self.window_mode == "dynamic":
-                time_to_sleep = self.sample_controller.get_sleep_time() - (
-                    time.time() - start_time
-                )
-            else:
-                time_to_sleep = 1 / self.frequency - (time.time() - start_time)
-
-            print(f"Loop duration: {time.time() - start_time:.2f} seconds")
+            print(f"Sampling loop duration: {time.time() - start_time:.2f} seconds")
