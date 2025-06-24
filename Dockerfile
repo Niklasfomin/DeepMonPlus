@@ -18,7 +18,7 @@ RUN apt-get clean && apt-get update && apt-get install -y \
   && rm -rf /var/lib/apt/lists/*
 
 # 2. Install Python dependencies
-RUN pip3 install --upgrade pip && pip3 install numpy pyyaml docker
+RUN pip3 install --upgrade pip && pip3 install numpy prometheus-client pyyaml docker
 
 # 3. Set UTF-8 locale
 ENV LC_ALL=en_US.UTF-8

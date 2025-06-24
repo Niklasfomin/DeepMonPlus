@@ -1,21 +1,21 @@
 """
-    DEEP-mon
-    Copyright (C) 2020  Brondolin Rolando
+DEEP-mon
+Copyright (C) 2020  Brondolin Rolando
 
-    This file is part of DEEP-mon
+This file is part of DEEP-mon
 
-    DEEP-mon is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+DEEP-mon is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    DEEP-mon is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+DEEP-mon is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import ctypes as ct
@@ -26,24 +26,26 @@ import json
 class BpfPidStatus(ct.Structure):
     TASK_COMM_LEN = 16
     socket_size = 0
-    _fields_ = [("pid", ct.c_int),
-                ("tgid", ct.c_int),
-                ("comm", ct.c_char * TASK_COMM_LEN),
-                ("weighted_cycles", ct.c_ulonglong * 2 * socket_size),
-                ("cycles", ct.c_ulonglong * 2),
-                ("instruction_retired", ct.c_ulonglong * 2),
-                ("cache_misses", ct.c_ulonglong * 2),
-                ("cache_refs", ct.c_ulonglong * 2),
-                ("time_ns", ct.c_ulonglong * 2),
-                ("bpf_selector", ct.c_int),
-                ("ts", ct.c_ulonglong * 2 * socket_size)]
+    _fields_ = [
+        ("pid", ct.c_int),
+        ("tgid", ct.c_int),
+        ("comm", ct.c_char * TASK_COMM_LEN),
+        ("weighted_cycles", ct.c_ulonglong * 2 * socket_size),
+        ("cycles", ct.c_ulonglong * 2),
+        ("instruction_retired", ct.c_ulonglong * 2),
+        ("cache_misses", ct.c_ulonglong * 2),
+        ("cache_refs", ct.c_ulonglong * 2),
+        ("time_ns", ct.c_ulonglong * 2),
+        ("bpf_selector", ct.c_int),
+        ("ts", ct.c_ulonglong * 2 * socket_size),
+    ]
 
     def __init__(self, socket_size):
         self.socket_size = socket_size
 
-class SocketProcessItem:
 
-    def __init__(self, weighted_cycles = 0, ts = 0):
+class SocketProcessItem:
+    def __init__(self, weighted_cycles=0, ts=0):
         self.weighted_cycles = weighted_cycles
         self.ts = ts
 
@@ -64,11 +66,10 @@ class SocketProcessItem:
         self.ts = 0
 
     def __str__(self):
-        return "ts: " + str(self.ts) \
-            + " w:" + str(self.weighted_cycles)
+        return "ts: " + str(self.ts) + " w:" + str(self.weighted_cycles)
+
 
 class ProcessInfo:
-
     def __init__(self, num_sockets):
         self.pid = -1
         self.tgid = -1
@@ -84,6 +85,7 @@ class ProcessInfo:
         self.cache_misses = 0
         self.cache_refs = 0
         self.time_ns = 0
+        self.last_seen_ts = 0
 
         self.network_transactions = []
         self.nat_rules = []
@@ -93,6 +95,12 @@ class ProcessInfo:
 
     def set_pid(self, pid):
         self.pid = pid
+
+    def set_last_seen_ts(self, ts):
+        self.last_seen_ts = ts
+
+    def get_last_seen_ts(self):
+        return self.last_seen_ts
 
     def set_tgid(self, tgid):
         self.tgid = tgid
@@ -124,8 +132,12 @@ class ProcessInfo:
     def compute_cpu_usage_millis(self, total_execution_time_millis, total_cores):
         self.cpu_usage = 0
         if total_execution_time_millis != 0:
-            self.cpu_usage = float((self.time_ns/1000000) \
-                / total_execution_time_millis * total_cores * 100) # percentage moved to other percentage
+            self.cpu_usage = float(
+                (self.time_ns / 1000000)
+                / total_execution_time_millis
+                * total_cores
+                * 100
+            )  # percentage moved to other percentage
 
     def set_socket_data_array(self, socket_data_array):
         self.socket_data = socket_data_array
@@ -134,8 +146,9 @@ class ProcessInfo:
         self.socket_data[socket_index] = socket_data
 
     def set_raw_socket_data(self, socket_index, weighted_cycles, ts):
-        self.socket_data[socket_index] = \
-            SocketProcessItem(weighted_cycles, instruction_retired, time_ns, ts)
+        self.socket_data[socket_index] = SocketProcessItem(
+            weighted_cycles, instruction_retired, time_ns, ts
+        )
 
     def set_cgroup_id(self, cgroup_id):
         self.cgroup_id = cgroup_id
@@ -148,7 +161,6 @@ class ProcessInfo:
 
     def set_nat_rules(self, nat_rules):
         self.nat_rules = nat_rules
-
 
     def reset_data(self):
         self.instruction_retired = 0
@@ -190,7 +202,7 @@ class ProcessInfo:
     def get_time_ns(self):
         return self.time_ns
 
-    def get_socket_data(self, socket_index = -1):
+    def get_socket_data(self, socket_index=-1):
         if socket_index < 0:
             return self.socket_data
         return self.socket_data[socket_index]
@@ -220,11 +232,18 @@ class ProcessInfo:
     def get_nat_rules(self):
         return self.nat_rules
 
-
     def __str__(self):
-        str_rep = str(self.pid) + " comm: " + str(self.comm) \
-            + " c_id: " + self.container_id + " p: " + str(self.power) \
-            + " u: " + str(self.cpu_usage)
+        str_rep = (
+            str(self.pid)
+            + " comm: "
+            + str(self.comm)
+            + " c_id: "
+            + self.container_id
+            + " p: "
+            + str(self.power)
+            + " u: "
+            + str(self.cpu_usage)
+        )
 
         for socket_item in self.socket_data:
             str_rep = str_rep + " " + str(socket_item)

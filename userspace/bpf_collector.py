@@ -86,7 +86,9 @@ class BpfSample:
         d["PROC TIME"] = "{:.3f}".format(self.total_execution_time)
         d["SCHED SWITCH COUNT"] = str(self.sched_switch_count)
         d["TIMESLICE"] = str(self.timeslice / 1000000000)
-        d["TOTAL PACKAGE ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["package"])
+        d["TOTAL PACKAGE ACTIVE POWER"] = "{:.3f}".format(
+            self.total_active_power["package"]
+        )
         d["TOTAL CORE ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["core"])
         # d["TOTAL DRAM ACTIVE POWER"] = "{:.3f}".format(self.total_active_power["dram"])
         return d
@@ -119,7 +121,9 @@ class BpfSample:
             "PROC TIME": "{:.6f}".format(self.total_execution_time),
             "SCHED SWITCH COUNT": str(self.sched_switch_count),
             "TIMESLICE": str(self.timeslice),
-            "TOTAL PACKAGE ACTIVE POWER": "{:.3f}".format(self.total_active_power["package"]),
+            "TOTAL PACKAGE ACTIVE POWER": "{:.3f}".format(
+                self.total_active_power["package"]
+            ),
             "TOTAL CORE ACTIVE POWER": "{:.3f}".format(self.total_active_power["core"]),
             # "TOTAL DRAM ACTIVE POWER": "{:.3f}".format(self.total_active_power["dram"]),
         }
@@ -151,7 +155,7 @@ class BpfCollector:
             os.path.dirname(os.path.abspath(__file__)) + "/../bpf/bpf_monitor.c"
         )
         # if debug is False:
-            # if self.power_measure == True:
+        # if self.power_measure == True:
         self.bpf_program = BPF(
             src_file=bpf_code_path,
             cflags=[
@@ -202,7 +206,9 @@ class BpfCollector:
         try:
             # print("Opening cycles_core perf event...")
             # self.bpf_program["cycles_core"].open_perf_event(4, int("73003c", 16))
-            self.bpf_program["cycles_core"].open_perf_event(PerfType.HARDWARE, PerfHWConfig.CPU_CYCLES)
+            self.bpf_program["cycles_core"].open_perf_event(
+                PerfType.HARDWARE, PerfHWConfig.CPU_CYCLES
+            )
             # print("cycles_core opened successfully.")
         except Exception as e:
             print(f"Error opening cycles_core: {e}")
@@ -211,7 +217,9 @@ class BpfCollector:
         try:
             # print("Opening cycles_thread perf event...")
             # self.bpf_program["cycles_thread"].open_perf_event(4, int("53003c", 16))
-            self.bpf_program["cycles_thread"].open_perf_event(PerfType.HARDWARE, PerfHWConfig.CPU_CYCLES)
+            self.bpf_program["cycles_thread"].open_perf_event(
+                PerfType.HARDWARE, PerfHWConfig.CPU_CYCLES
+            )
             # print("cycles_thread opened successfully.")
         except Exception as e:
             print(f"Error opening cycles_thread: {e}")
@@ -219,7 +227,9 @@ class BpfCollector:
         try:
             # print("Opening instr_thread perf event...")
             # self.bpf_program["instr_thread"].open_perf_event(4, int("5300c0", 16))
-            self.bpf_program["instr_thread"].open_perf_event(PerfType.HARDWARE, PerfHWConfig.INSTRUCTIONS)
+            self.bpf_program["instr_thread"].open_perf_event(
+                PerfType.HARDWARE, PerfHWConfig.INSTRUCTIONS
+            )
             # print("instr_thread opened successfully.")
         except Exception as e:
             print(f"Error opening instr_thread: {e}")
@@ -278,10 +288,13 @@ class BpfCollector:
         )
 
     def start_timed_capture(self, count=0, frequency=0):
+        MIN_TIMESLICE_NS = 100_000_000
         if frequency:
             sample_freq = frequency
             sample_period = 0
-            self.timeslice = int((1 / float(frequency)) * 1000000000)
+            self.timeslice = max(
+                int((1 / float(frequency)) * 1000000000), MIN_TIMESLICE_NS
+            )
         elif count:
             sample_freq = 0
             sample_period = count
@@ -365,7 +378,7 @@ class BpfCollector:
         core_diff = 0
         dram_diff = 0
         # if self.power_measure == True:
-            # Get new sample from rapl right before changing selector in eBPF
+        # Get new sample from rapl right before changing selector in eBPF
         rapl_measurement = rapl_monitor.get_rapl_measure()
 
         package_diff = rapl_measurement["package"]
@@ -373,7 +386,25 @@ class BpfCollector:
         dram_diff = rapl_measurement["dram"]
 
         # Propagate the update of the selector to the eBPF program
+        print(
+            f"DEBUG: tsmax before selector switch: {self.bpf_global_timestamps[ct.c_int(read_selector)].value}"
+        )
         self.bpf_config[ct.c_int(0)] = ct.c_uint(self.selector)
+        time.sleep(0.01)
+        print(
+            # f"DEBUG: tsmax after selector switch: {self.bpf_global_timestamps[ct.c_int(read_selector)].value}"
+        )
+        # prev_tsmax = self.bpf_global_timestamps[ct.c_int(read_selector)].value
+        # timeout = 0.2  # 200ms max wait
+        # waited = 0
+        # while True:
+        #     tsmax_new = self.bpf_global_timestamps[ct.c_int(read_selector)].value
+        #     if tsmax_new != prev_tsmax:
+        #         break
+        #     time.sleep(0.001)
+        #     waited += 0.001
+        #     if waited >= timeout:
+        #         break
 
         pid_dict = {}
 
@@ -389,13 +420,15 @@ class BpfCollector:
 
             # if self.power_measure == True:
             for multisocket_selector in range(
-                    read_selector, total_slots_length, self.SELECTOR_DIM
-                ):
-                    # Compute the number of total weighted cycles per socket
-                    cycles_index = int(multisocket_selector / self.SELECTOR_DIM)
-                    # if data.ts[read_selector] + self.timeslice > tsmax:
-                    total_weighted_cycles[cycles_index] = (total_weighted_cycles[cycles_index]+ data.weighted_cycles[multisocket_selector])
-                        
+                read_selector, total_slots_length, self.SELECTOR_DIM
+            ):
+                # Compute the number of total weighted cycles per socket
+                cycles_index = int(multisocket_selector / self.SELECTOR_DIM)
+                # if data.ts[read_selector] + self.timeslice > tsmax:
+                total_weighted_cycles[cycles_index] = (
+                    total_weighted_cycles[cycles_index]
+                    + data.weighted_cycles[multisocket_selector]
+                )
 
         # Add the count of clock cycles for each idle process to the total
         # number of clock cycles of the socket
@@ -407,15 +440,15 @@ class BpfCollector:
 
             # if self.power_measure == True:
             for multisocket_selector in range(
-                    read_selector, total_slots_length, self.SELECTOR_DIM
-                ):
-                    # Compute the number of total weighted cycles per socket
-                    cycles_index = int(multisocket_selector / self.SELECTOR_DIM)
-                    # if data.ts[read_selector] + self.timeslice > tsmax:
-                    total_weighted_cycles[cycles_index] = (
-                            total_weighted_cycles[cycles_index]
-                            + data.weighted_cycles[multisocket_selector]
-                        )
+                read_selector, total_slots_length, self.SELECTOR_DIM
+            ):
+                # Compute the number of total weighted cycles per socket
+                cycles_index = int(multisocket_selector / self.SELECTOR_DIM)
+                # if data.ts[read_selector] + self.timeslice > tsmax:
+                total_weighted_cycles[cycles_index] = (
+                    total_weighted_cycles[cycles_index]
+                    + data.weighted_cycles[multisocket_selector]
+                )
 
         # Compute package/core/dram power in mW from RAPL samples
         package_power = [
@@ -438,6 +471,8 @@ class BpfCollector:
         }
 
         for key, data in self.pids.items():
+            # print(f"DEBUG: Number of entries in self.pids: {len(self.pids)}")
+            # print(f"DEBUG: BPF PID {data.pid} COMM {data.comm} TS {data.ts} ...")
             proc_info = ProcessInfo(len(self.topology.get_sockets()))
             proc_info.set_pid(data.pid)
             proc_info.set_tgid(data.tgid)
@@ -463,7 +498,6 @@ class BpfCollector:
                     )
                     add_proc = True
 
-            # --- ADD THIS BLOCK ---
             # Try to set container_id using cgroup_id
             try:
                 cgroup_id = ProcTable.find_cgroup_id(data.pid, data.tgid)
@@ -474,15 +508,12 @@ class BpfCollector:
                 pass
             # After: cgroup_id = ProcTable.find_cgroup_id_static(data.pid, data.tgid)
             # print(f"DEBUG: PID {data.pid} TGID {data.tgid} cgroup_id: {cgroup_id}")
-            # --- END BLOCK ---
 
             if add_proc:
                 pid_dict[data.pid] = proc_info
 
                 proc_info.set_power(
-                    self._get_pid_power(
-                        proc_info, total_weighted_cycles, core_power
-                    )
+                    self._get_pid_power(proc_info, total_weighted_cycles, core_power)
                 )
                 # print("DEBUG: total_weighted_cycles:", total_weighted_cycles)
                 # print("DEBUG: core_power:", core_power)
@@ -518,7 +549,6 @@ class BpfCollector:
                     )
                     add_proc = True
 
-            # --- ADD THIS BLOCK ---
             # Try to set container_id using cgroup_id
             try:
                 cgroup_id = ProcTable.find_cgroup_id(data.pid, data.tgid)
@@ -529,16 +559,13 @@ class BpfCollector:
                 pass
             # After: cgroup_id = ProcTable.find_cgroup_id_static(data.pid, data.tgid)
             # print(f"DEBUG: PID {data.pid} TGID {data.tgid} cgroup_id: {cgroup_id}")
-            # --- END BLOCK ---
 
             if add_proc:
                 pid_dict[-1 * (1 + int(key.value))] = proc_info
                 proc_info.set_power(
-                    self._get_pid_power(
-                        proc_info, total_weighted_cycles, core_power
-                    )
+                    self._get_pid_power(proc_info, total_weighted_cycles, core_power)
                 )
-                # print(f"DEBUG: PID {data.pid} power: {proc_info.get_power()}")  
+                # print(f"DEBUG: PID {data.pid} power: {proc_info.get_power()}")
 
         return BpfSample(
             tsmax,
@@ -571,5 +598,3 @@ class BpfCollector:
                 wc = float(pid.get_socket_data(socket).get_weighted_cycles())
                 pid_power += core_power[socket] * (wc / tc)
         return pid_power
-
- 

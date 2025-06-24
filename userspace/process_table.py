@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import docker
 from .process_info import ProcessInfo
+
 # from .bpf_collector import BpfSample
 from .container_info import ContainerInfo
 import os
@@ -35,7 +36,8 @@ class ProcTable:
         evicted_keys = []
 
         for proc_table_key, proc_table_value in self.proc_table.items():
-            if proc_table_value.get_last_ts() + 8000000000 < ts:
+            # if proc_table_value.get_last_ts() + 8000000000 < ts:
+            if proc_table_value.get_last_ts() + 30000000000 < ts:
                 evicted_keys.append(proc_table_key)
             else:
                 proc_table_value.set_power(0)
@@ -67,6 +69,34 @@ class ProcTable:
                     self.proc_table[key].set_cache_refs(value.get_cache_refs())
                     self.proc_table[key].set_time_ns(value.get_time_ns())
                     self.proc_table[key].set_socket_data_array(value.get_socket_data())
+                    # Accumulate metrics instead of overwriting
+
+                    # self.proc_table[key].set_power(
+                    #     self.proc_table[key].get_power() + value.get_power()
+                    # )
+                    # self.proc_table[key].set_cpu_usage(
+                    #     self.proc_table[key].get_cpu_usage() + value.get_cpu_usage()
+                    # )
+                    # self.proc_table[key].set_instruction_retired(
+                    #     self.proc_table[key].get_instruction_retired()
+                    #     + value.get_instruction_retired()
+                    # )
+                    # self.proc_table[key].set_cycles(
+                    #     self.proc_table[key].get_cycles() + value.get_cycles()
+                    # )
+                    # self.proc_table[key].set_cache_misses(
+                    #     self.proc_table[key].get_cache_misses()
+                    #     + value.get_cache_misses()
+                    # )
+                    # self.proc_table[key].set_cache_refs(
+                    #     self.proc_table[key].get_cache_refs() + value.get_cache_refs()
+                    # )
+                    # self.proc_table[key].set_time_ns(
+                    #     self.proc_table[key].get_time_ns() + value.get_time_ns()
+                    # )
+                    # # Optionally: merge socket data if needed
+                    # # Optionally: update last seen timestamp
+                    # self.proc_table[key].set_last_seen(sample.get_max_ts())
                 else:
                     # process is changed, replace entry and find cgroup_id
                     try:
@@ -103,7 +133,75 @@ class ProcTable:
                 except KeyError:
                     pass
 
+    # def add_process_from_sample(self, sample, net_dictionary=None, nat_dictionary=None):
+    #     for key, value in sample.get_pid_dict().items():
+    #         value.set_last_seen_ts(sample.get_max_ts())
+    #         if key in self.proc_table:
+    #             # process already there, check if comm is the same
+    #             if value.get_comm() == self.proc_table[key].get_comm():
+    #                 # Accumulate metrics instead of overwriting
+    #                 self.proc_table[key].set_power(
+    #                     self.proc_table[key].get_power() + value.get_power()
+    #                 )
+    #                 self.proc_table[key].set_cpu_usage(
+    #                     self.proc_table[key].get_cpu_usage() + value.get_cpu_usage()
+    #                 )
+    #                 self.proc_table[key].set_instruction_retired(
+    #                     self.proc_table[key].get_instruction_retired()
+    #                     + value.get_instruction_retired()
+    #                 )
+    #                 self.proc_table[key].set_cycles(
+    #                     self.proc_table[key].get_cycles() + value.get_cycles()
+    #                 )
+    #                 self.proc_table[key].set_cache_misses(
+    #                     self.proc_table[key].get_cache_misses()
+    #                     + value.get_cache_misses()
+    #                 )
+    #                 self.proc_table[key].set_cache_refs(
+    #                     self.proc_table[key].get_cache_refs() + value.get_cache_refs()
+    #                 )
+    #                 self.proc_table[key].set_time_ns(
+    #                     self.proc_table[key].get_time_ns() + value.get_time_ns()
+    #                 )
+    #                 # Optionally: merge socket data if needed
+    #                 self.proc_table[key].set_last_seen(sample.get_max_ts())
+    #             else:
+    #                 # process is changed, replace entry and find cgroup_id
+    #                 try:
+    #                     cgroup_id = self.find_cgroup_id(key, value.tgid)
+    #                     if cgroup_id is not None:
+    #                         value.set_cgroup_id(cgroup_id)
+    #                         value.set_container_id(cgroup_id[0:12])
+    #                         value.set_last_seen(sample.get_max_ts())
+    #                         self.proc_table[key] = value
+    #                 except Exception:
+    #                     continue
+    #         else:
+    #             # new process, add it and find cgroup_id
+    #             try:
+    #                 cgroup_id = self.find_cgroup_id(key, value.tgid)
+    #                 if cgroup_id is not None:
+    #                     value.set_cgroup_id(cgroup_id)
+    #                     value.set_container_id(cgroup_id[0:12])
+    #                     value.set_last_seen(sample.get_max_ts())
+    #                     self.proc_table[key] = value
+    #             except Exception:
+    #                 continue
+
+    #         if net_dictionary and key in net_dictionary:
+    #             try:
+    #                 self.proc_table[key].set_network_transactions(net_dictionary[key])
+    #             except KeyError:
+    #                 pass
+
+    #         if nat_dictionary and key in nat_dictionary:
+    #             try:
+    #                 self.proc_table[key].set_nat_rules(nat_dictionary[key])
+    #             except KeyError:
+    #                 pass
+
     def find_cgroup_id(self, pid, tgid):
+        # print(f"DEBUG: Looking for cgroup_id for PID {pid}, TGID {tgid}")
         for id in [pid, tgid]:
             # scan proc folder searching for the pid
             for path in ["/host/proc", "/proc"]:
@@ -141,42 +239,6 @@ class ProcTable:
                 except IOError:  # proc has already terminated
                     continue
         return None
-
-    # @staticmethod
-    # def find_cgroup_id_static(pid, tgid):
-    #     for id in [pid, tgid]:
-    #         for path in ["/host/proc", "/proc"]:
-    #             try:
-    #                 with open(os.path.join(path, str(id), "cgroup"), "r") as f:
-    #                     for line in f:
-    #                         line_array = line.split("/")
-    #                         if (
-    #                             len(line_array) > 1
-    #                             and len(line_array[len(line_array) - 1]) == 65
-    #                         ):
-    #                             return line_array[len(line_array) - 1]
-    #             except IOError:
-    #                 continue
-
-    #         for path in ["/host/proc", "/proc"]:
-    #             try:
-    #                 with open(os.path.join(path, str(id), "cgroup"), "r") as f:
-    #                     for line in f:
-    #                         line_array = line.split("/")
-    #                         if (
-    #                             len(line_array) > 1
-    #                             and "docker-" in line_array[len(line_array) - 1]
-    #                             and ".scope" in line_array[len(line_array) - 1]
-    #                         ):
-    #                             new_id = line_array[len(line_array) - 1].replace(
-    #                                 "docker-", ""
-    #                             )
-    #                             new_id = new_id.replace(".scope", "")
-    #                             if len(new_id) == 65:
-    #                                 return new_id
-    #             except IOError:
-    #                 continue
-    #     return None
 
     def get_proc_table(self):
         return self.proc_table
