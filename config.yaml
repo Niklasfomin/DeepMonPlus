@@ -1,6 +1,6 @@
 window_mode: "fixed"
 container_regex: "cadvisor"
-output_format: "prometheus"
+output_format: "csv"
 debug_mode: True
 send_thread_data: True
 net_monitor: True

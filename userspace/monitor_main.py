@@ -28,6 +28,9 @@ from .disk_collector import DiskCollector
 from .rapl.rapl import RaplMonitor
 import time
 import pprint
+import csv
+import json
+import os
 import re
 import prometheus_client as prom
 
@@ -181,6 +184,46 @@ class MonitorMain:
             nat_data,
             file_dict,
         ]
+
+    def write_container_metrics_csv(self, container_list, base_dir="/output"):
+        """
+        Writes container metrics to CSV files in a nested folder structure.
+        Each container ID gets its own folder.
+        Each metric (except container_id and container_name) gets its own subfolder.
+        Each metric subfolder contains a CSV file with time series entries.
+        """
+
+        print("CALLED")
+        os.makedirs(base_dir, exist_ok=True)
+        for container_id, value in container_list.items():
+            container_dir = os.path.join(base_dir, str(container_id))
+            os.makedirs(container_dir, exist_ok=True)
+            # Convert to dict if needed
+            if hasattr(value, "to_json"):
+                data = value.to_json()
+                if isinstance(data, str):
+                    data = json.loads(data)
+            elif isinstance(value, dict):
+                data = value
+            else:
+                continue
+
+            for metric, metric_value in data.items():
+                if metric in ("container_id", "container_name"):
+                    continue
+                metric_dir = os.path.join(container_dir, metric)
+                os.makedirs(metric_dir, exist_ok=True)
+                csv_path = os.path.join(metric_dir, "timeseries.csv")
+                # Check if file exists and is non-empty
+                file_exists = os.path.exists(csv_path)
+                file_empty = not file_exists or os.path.getsize(csv_path) == 0
+                with open(csv_path, "a", newline="") as csvfile:
+                    writer = csv.writer(csvfile)
+                    if file_empty:
+                        writer.writerow(["timestamp", "container_name", "value"])
+                    writer.writerow(
+                        [int(time.time()), data.get("container_name", ""), metric_value]
+                    )
 
     def log2prometheus(self, container_list, container_metrics):
         """
@@ -354,6 +397,37 @@ class MonitorMain:
                                     print(value.to_json())
                                 else:
                                     print(str(value))
+                        if not found:
+                            print("No nextflow container found yet.")
+                        print(f"Nextflow unique task count: {nxf_counter}")
+                        print("Caught Containers:")
+                        pprint.pprint(seen_nxf_containers)
+                    else:
+                        print("No containers found in this sample.")
+                except AttributeError as e:
+                    print(f"AttributeError: {e}")
+                except Exception as e:
+                    print(f"Unexpected error: {e}")
+
+            if self.output_format == "csv":
+                try:
+                    found = False
+                    if container_list:
+                        for key, value in container_list.items():
+                            container_name = getattr(value, "container_name", "")
+                            if self.container_pattern and self.container_pattern.match(
+                                container_name
+                            ):
+                                found = True
+                                if key not in seen_nxf_containers:
+                                    seen_nxf_containers.add(key)
+                                    nxf_counter += 1
+                                    print(
+                                        f"Container ID {key} name matches: {container_name}"
+                                    )
+                                    continue
+                                self.write_container_metrics_csv(container_list)
+                                print(value.to_json())
                         if not found:
                             print("No nextflow container found yet.")
                         print(f"Nextflow unique task count: {nxf_counter}")
