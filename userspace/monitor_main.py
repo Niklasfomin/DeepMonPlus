@@ -347,6 +347,8 @@ class MonitorMain:
                     if container_list:
                         for key, value in container_list.items():
                             container_name = getattr(value, "container_name", "")
+                            if not isinstance(container_name, str):
+                                container_name = str(container_name)
                             if self.container_pattern and self.container_pattern.match(
                                 container_name
                             ):
