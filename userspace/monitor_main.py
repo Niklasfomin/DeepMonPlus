@@ -360,10 +360,9 @@ class MonitorMain:
                                     container_list, container_metrics
                                 )
                                 pprint.pprint(metrics)
-                                if not found:
-                                    print("No nextflow container found yet.")
+                        if not found:
+                            print("No nextflow container found yet.")
                             print(f"Nextflow unique task count: {nxf_counter}")
-                            pprint.pprint(seen_nxf_containers)
                     else:
                         print("No containers found in this sample.")
                 except AttributeError as e:

@@ -1,6 +1,6 @@
 window_mode: "fixed"
-container_regex: "cadvisor"
-output_format: "csv"
+container_regex: "^nxf.*" 
+output_format: "prometheus"
 debug_mode: True
 send_thread_data: True
 net_monitor: True
