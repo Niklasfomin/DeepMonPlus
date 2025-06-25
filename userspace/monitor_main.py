@@ -194,34 +194,38 @@ class MonitorMain:
         """
         os.makedirs(base_dir, exist_ok=True)
         for container_id, value in container_list.items():
-            container_dir = os.path.join(base_dir, str(container_id))
-            os.makedirs(container_dir, exist_ok=True)
+            container_name = getattr(value, "container_name", "")
+            if not isinstance(container_name, str):
+                container_name = str(container_name)
+            if self.container_pattern and self.container_pattern.match(container_name):
+                container_dir = os.path.join(base_dir, str(container_id))
+                os.makedirs(container_dir, exist_ok=True)
             # Convert to dict if needed
-            if hasattr(value, "to_json"):
-                data = value.to_json()
-                if isinstance(data, str):
-                    data = json.loads(data)
-            elif isinstance(value, dict):
-                data = value
-            else:
-                continue
+                if hasattr(value, "to_json"):
+                    data = value.to_json()
+                    if isinstance(data, str):
+                        data = json.loads(data)
+                elif isinstance(value, dict):
+                    data = value
+                else:
+                 continue
 
-            for metric, metric_value in data.items():
-                if metric in ("container_id", "container_name"):
-                    continue
-                metric_dir = os.path.join(container_dir, metric)
-                os.makedirs(metric_dir, exist_ok=True)
-                csv_path = os.path.join(metric_dir, "timeseries.csv")
-                # Check if file exists and is non-empty
-                file_exists = os.path.exists(csv_path)
-                file_empty = not file_exists or os.path.getsize(csv_path) == 0
-                with open(csv_path, "a", newline="") as csvfile:
-                    writer = csv.writer(csvfile)
-                    if file_empty:
-                        writer.writerow(["timestamp", "container_name", "value"])
-                    writer.writerow(
-                        [int(time.time()), data.get("container_name", ""), metric_value]
-                    )
+                for metric, metric_value in data.items():
+                    if metric in ("container_id", "container_name"):
+                        continue
+                    metric_dir = os.path.join(container_dir, metric)
+                    os.makedirs(metric_dir, exist_ok=True)
+                    csv_path = os.path.join(metric_dir, "timeseries.csv")
+                    # Check if file exists and is non-empty
+                    file_exists = os.path.exists(csv_path)
+                    file_empty = not file_exists or os.path.getsize(csv_path) == 0
+                    with open(csv_path, "a", newline="") as csvfile:
+                        writer = csv.writer(csvfile)
+                        if file_empty:
+                            writer.writerow(["timestamp", "container_name", "value"])
+                        writer.writerow(
+                            [int(time.time()), data.get("container_name", ""), metric_value]
+                        )
 
     def log2prometheus(self, container_list, container_metrics):
         """
@@ -417,6 +421,9 @@ class MonitorMain:
                     if container_list:
                         for key, value in container_list.items():
                             container_name = getattr(value, "container_name", "")
+                            cpu_usage = getattr(value, "cpu_usage", 0)
+                            if not isinstance(container_name, str):
+                                container_name = str(container_name)
                             if self.container_pattern and self.container_pattern.match(
                                 container_name
                             ):
@@ -427,14 +434,20 @@ class MonitorMain:
                                     print(
                                         f"Container ID {key} name matches: {container_name}"
                                     )
-                                    continue
-                                self.write_container_metrics_csv(container_list)
-                                print(value.to_json())
-                        if not found:
-                            print("No nextflow container found yet.")
-                        print(f"Nextflow unique task count: {nxf_counter}")
-                        print("Caught Containers:")
-                        pprint.pprint(seen_nxf_containers)
+                                    # continue
+                                if not value:
+                                    print(f"ALARM Container {key} has no metrics.")
+                                else:
+                                    # continue
+                                    # print(f"Writing metrics for container {key} with values {value.to_json()}")
+                                # print(value.to_json())
+                                    self.write_container_metrics_csv(container_list)
+                                    # print(value.to_json())
+                                    # print(f"DEBUG Caught Containers with name: {container_name} and example metric: {cpu_usage}")
+                        # if not found:
+                            # print("No nextflow container found yet.")
+                        # print(f"Nextflow unique task count: {nxf_counter}")
+                        # pprint.pprint(seen_nxf_containers)
                     else:
                         print("No containers found in this sample.")
                 except AttributeError as e:
