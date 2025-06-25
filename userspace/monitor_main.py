@@ -192,8 +192,6 @@ class MonitorMain:
         Each metric (except container_id and container_name) gets its own subfolder.
         Each metric subfolder contains a CSV file with time series entries.
         """
-
-        print("CALLED")
         os.makedirs(base_dir, exist_ok=True)
         for container_id, value in container_list.items():
             container_dir = os.path.join(base_dir, str(container_id))
@@ -251,6 +249,9 @@ class MonitorMain:
 
         try:
             for key, value in container_list.items():
+                container_name = getattr(value, "container_name", "")
+                if not isinstance(container_name, str):
+                    container_name = str(container_name)
                 cpu_usage = float(getattr(value, "cpu_usage", 0) or 0)
                 cycles = float(getattr(value, "cycles", 0) or 0)
                 weighted_cycles = float(getattr(value, "weighted_cycles", 0) or 0)
@@ -269,44 +270,44 @@ class MonitorMain:
                 num_writes = float(getattr(value, "num_w", 0) or 0)
                 disk_avg_lat = float(getattr(value, "disk_avg_lat", 0) or 0)
 
-                container_metrics["container_cpu_usage"].labels(container_id=key).set(
+                container_metrics["container_cpu_usage"].labels(container_id=key, name=container_name).set(
                     cpu_usage
                 )
-                container_metrics["container_cycles"].labels(container_id=key).set(
+                container_metrics["container_cycles"].labels(container_id=key, name=container_name).set(
                     cycles
                 )
                 container_metrics["container_weighted_cycles"].labels(
-                    container_id=key
+                    container_id=key, name=container_name
                 ).set(weighted_cycles)
                 container_metrics["container_instruction_retired"].labels(
-                    container_id=key
+                    container_id=key, name=container_name, 
                 ).set(instruction_retired)
                 container_metrics["container_cache_misses"].labels(
-                    container_id=key
+                    container_id=key, name=container_name
                 ).set(cache_misses)
-                container_metrics["container_cache_refs"].labels(container_id=key).set(
+                container_metrics["container_cache_refs"].labels(container_id=key, name=container_name).set(
                     cache_refs
                 )
-                container_metrics["container_power"].labels(container_id=key).set(power)
-                container_metrics["container_mem_rss"].labels(container_id=key).set(
+                container_metrics["container_power"].labels(container_id=key, name=container_name).set(power)
+                container_metrics["container_mem_rss"].labels(container_id=key, name=container_name).set(
                     mem_RSS
                 )
-                container_metrics["container_mem_pss"].labels(container_id=key).set(
+                container_metrics["container_mem_pss"].labels(container_id=key, name=container_name).set(
                     mem_PSS
                 )
-                container_metrics["container_mem_uss"].labels(container_id=key).set(
+                container_metrics["container_mem_uss"].labels(container_id=key, name=container_name).set(
                     mem_USS
                 )
-                container_metrics["container_kb_r"].labels(container_id=key).set(kb_r)
-                container_metrics["container_kb_w"].labels(container_id=key).set(kb_w)
-                container_metrics["container_num_reads"].labels(container_id=key).set(
+                container_metrics["container_kb_r"].labels(container_id=key, name=container_name).set(kb_r)
+                container_metrics["container_kb_w"].labels(container_id=key, name=container_name).set(kb_w)
+                container_metrics["container_num_reads"].labels(container_id=key, name=container_name).set(
                     num_reads
                 )
-                container_metrics["container_num_writes"].labels(container_id=key).set(
+                container_metrics["container_num_writes"].labels(container_id=key, name=container_name).set(
                     num_writes
                 )
                 container_metrics["container_disk_avg_lat"].labels(
-                    container_id=key
+                    container_id=key, name=container_name
                 ).set(disk_avg_lat)
 
             return metric_names
@@ -321,7 +322,7 @@ class MonitorMain:
             print("Initializing Prometheus metrics")
             # Define Prometheus metrics
             container_metrics = {
-                name: prom.Gauge(name, desc, ["container_id"])
+                name: prom.Gauge(name, desc, ["container_id", "name"])
                 for name, desc in CONTAINER_METRICS
             }
 
