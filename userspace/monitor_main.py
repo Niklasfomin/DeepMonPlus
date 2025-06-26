@@ -194,6 +194,8 @@ class MonitorMain:
         """
         os.makedirs(base_dir, exist_ok=True)
         for container_id, value in container_list.items():
+            if not container_list:
+                return
             container_name = getattr(value, "container_name", "")
             if not isinstance(container_name, str):
                 container_name = str(container_name)
@@ -254,6 +256,7 @@ class MonitorMain:
         try:
             for key, value in container_list.items():
                 container_name = getattr(value, "container_name", "")
+                # print("fProcessing container {container_name}")
                 if not isinstance(container_name, str):
                     container_name = str(container_name)
                 cpu_usage = float(getattr(value, "cpu_usage", 0) or 0)
@@ -350,7 +353,14 @@ class MonitorMain:
                 try:
                     found = False
                     if container_list:
-                        for key, value in container_list.items():
+                        matching_container_list = {
+                            key: value
+                            for key, value in container_list.items()
+                            if self.container_pattern.match(
+                                getattr(value, "container_name", "")
+                            )
+                        }
+                        for key, value in matching_container_list.items():
                             container_name = getattr(value, "container_name", "")
                             if not isinstance(container_name, str):
                                 container_name = str(container_name)
@@ -362,14 +372,14 @@ class MonitorMain:
                                 if key not in seen_nxf_containers:
                                     seen_nxf_containers.add(key)
                                     nxf_counter += 1
-                                    continue
-                                metrics = self.log2prometheus(
-                                    container_list, container_metrics
-                                )
-                                pprint.pprint(metrics)
-                        if not found:
-                            print("No nextflow container found yet.")
-                            print(f"Nextflow unique task count: {nxf_counter}")
+                                if not value:
+                                    print(f"ALARM Container {key} has no metrics.")
+                                else:
+                                    print(f"Writing metrics to csv for container {container_name}")
+                                    self.write_container_metrics_csv({key: value})
+                            print(f"Sending metrics to prometheus for container {container_name}")
+                        self.log2prometheus(matching_container_list, container_metrics)
+                        print(f"Nextflow unique task count: {nxf_counter}")
                     else:
                         print("No containers found in this sample.")
                 except AttributeError as e:
@@ -441,7 +451,8 @@ class MonitorMain:
                                     # continue
                                     # print(f"Writing metrics for container {key} with values {value.to_json()}")
                                 # print(value.to_json())
-                                    self.write_container_metrics_csv(container_list)
+                                    # self.write_container_metrics_csv(container_list)
+                                    self.write_container_metrics_csv({key: value})
                                     # print(value.to_json())
                                     # print(f"DEBUG Caught Containers with name: {container_name} and example metric: {cpu_usage}")
                         # if not found:
