@@ -1,12 +1,12 @@
 window_mode: "fixed"
-container_regex: "^nxf.*" 
+container_regex: "^nxf-.*"
 output_format: "prometheus"
 debug_mode: True
 send_thread_data: True
-net_monitor: True
+net_monitor: False
 nat_trace: True
-print_net_details: True
-dynamic_tcp_client_port_masking: True
+print_net_details: False
+dynamic_tcp_client_port_masking: False
 power_measure: True
 memory_measure: True
 disk_measure: True
